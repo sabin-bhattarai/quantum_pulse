@@ -85,6 +85,11 @@ export class UI {
           this.emit('settings');
           break;
         case 'reset-settings': this.emit('reset-settings'); break;
+        case 'toggle-mute':
+          this.settings.mute = !this.settings.mute;
+          this.syncSettingsInputs();
+          this.emit('settings', 'mute');
+          break;
         case 'start-solo': this.emit('start', { mode: 'survival', arena: this.arenaChoice.solo }); break;
         case 'start-ffa': this.emit('start', { mode: 'ffa', arena: this.arenaChoice.ffa, room: $('#input-room-ffa').value.trim() }); break;
         case 'start-coop': this.emit('start', { mode: 'coop', room: $('#input-room-coop').value.trim() }); break;
@@ -220,6 +225,10 @@ export class UI {
     $('#crosshair').style.setProperty('--ch-scale', String(s.crosshairSize || 1));
     $('#hud-fps').hidden = !s.showFps;
     $('#debug-overlay').hidden = !s.debug;
+    const mute = $('#btn-mute');
+    mute.setAttribute('aria-pressed', String(!!s.mute));
+    mute.setAttribute('aria-label', s.mute ? 'Unmute audio' : 'Mute audio');
+    mute.title = mute.getAttribute('aria-label');
     $$('kbd[data-bind]').forEach((k) => { k.textContent = codeLabel((s.bindings[k.dataset.bind] || [])[0]); });
   }
 
