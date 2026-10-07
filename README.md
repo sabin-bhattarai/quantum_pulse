@@ -1,14 +1,16 @@
 # QUANTUM PULSE
 
-> **Phase-shift arena combat in your browser.** Grapple through quantum rings, tear open gravity fractures, and break reality with a well-timed Phase Break. All visuals and audio are procedurally generated.
+> **Phase-shift arena combat in your browser.** Grapple through quantum rings, tear open gravity fractures, and break reality with a well-timed Phase Break. Drawn like a living comic book: every character, arena and effect is generated in code, and all audio is synthesised.
 
 ![Main menu](docs/images/menu.jpg)
 
 Quantum Pulse is an original, fast-paced first-person arena shooter built with Three.js and Node.js. You play a **Pulse Runner**, fighting through unstable arenas that phase between versions of reality. You can survive escalating waves alone, fight up to 11 other runners in a server-authoritative free-for-all, or defend a quantum reactor with up to three friends.
 
-| Neon Rupture | The Folded Archive | Reactor Null |
+| Neon Rupture | The Folded Archive | Reactor Null (co-op) |
 | --- | --- | --- |
 | ![Neon Rupture](docs/images/neon-rupture.jpg) | ![The Folded Archive](docs/images/folded-archive.jpg) | ![Reactor Null](docs/images/reactor-null.jpg) |
+
+![Enemy line-up: Drift Swarm, Anchor Warden, Phase Stalker, Rift Caster, Shard Runner, Mirror Drone, Target Dummy, with the Singularity Titan behind](docs/images/enemies.jpg)
 
 ---
 
@@ -47,7 +49,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 
 **Quantum systems**
 - **Pulse Charge (0–100)**, earned through skilled play: damage, kills, airborne kills, weak-point hits, near-miss dodges, flying through rings, sustained speed, kill combos and environmental kills. Gains are capped per second.
-- **Phase Break** (`X` at 100 charge): 3.2 s in a parallel layer. Enemy projectiles pass through you and are drawn as delayed afterimages. Other damage is reduced by 60%, and violet phase barriers become passable. It is strongly telegraphed with a screen ripple, a tint and a sound.
+- **Phase Break** (`X` at 100 charge): 3.2 s in a parallel layer. Enemy projectiles pass through you and are drawn as delayed afterimages. Other damage is reduced by 60%, and blue hatched phase barriers become passable. It is strongly telegraphed with a screen ripple, a tint and a sound.
 - **Gravity Fractures**: attract, repel and orbit fields that act on players, enemies, projectiles and pickups. They use a documented, clamped fixed-step force model ([`src/shared/gravity.js`](src/shared/gravity.js)).
 - **Momentum combat**: damage scales with speed (capped at +30%). Hard landings create shockwaves, slides stagger light enemies, and grapple launches empower your next shots.
 - **Quantum Tether** (co-op): an automatic link to the nearest teammate. It grants a speed bonus when you stay coordinated, changes colour with stress and snaps when overstretched. It also lets you transfer Pulse Charge, deals a cutting-arc hit to enemies that cross it, and triggers a **Rift Surge** when both runners Phase Break together.
@@ -58,7 +60,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 |---|--------|-----------|
 | 1 | Pulse Carbine | Automatic hitscan. Accurate when grounded, unstable at speed, with damage falloff. |
 | 2 | Arc Scatter | Ten arcing pellets that briefly stun light enemies |
-| 3 | Vector Lance | Hold to charge, release to fire. Pierces up to 4 targets. The beam goes violet → magenta → amber as it charges. |
+| 3 | Vector Lance | Hold to charge, release to fire. Pierces up to 4 targets. The beam goes blue → red → yellow as it charges. |
 | 4 | Singularity Launcher | Slow orb that opens a Gravity Fracture on impact. 7 s cooldown. |
 | 5 | Phase Blades | Melee slash. Swinging on the beat deals 1.6× damage, and alt-fire deflects projectiles. |
 | 6 | Echo Repeater | Each shot repeats along the same trajectory 0.6 s later, with a visible marker |
@@ -81,8 +83,14 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 - Anti-stall: FFA campers are revealed through walls, and stuck enemies are recalled through a rift
 - Out-of-bounds protection: kill planes, invisible containment and safe recovery teleports
 
-**Presentation ("Quantum Ink / Neon Paper")**
-- Hatched "paper" shading, wobbling hand-drawn ink outlines, glowing quantum glyphs, aurora sky and floating shards. No image assets.
+**Presentation ("Ink Comic")**
+- Cel-shaded world with **halftone (Ben-Day dot) shadows**, hard sun shadows and **thick hand-inked outlines** drawn by a screen-space edge pass over depth and normals
+- Per-arena comic skies (posterised gradients, flat inked clouds, a halftone sun), a drowned city below Neon Rupture's floating islands, and painted decals for launch pads, heal zones and hazard channels
+- **Procedural, animated Pulse Runners**: armoured characters in team colours with run, jump, slide, grapple and downed poses, driven only by networked state
+- Distinct enemy silhouettes with glowing eyes, so every archetype is recognisable by shape alone
+- Comic effects: onomatopoeia bursts ("POW!", "KRAK!") on kills, inked tracers and shards, speed lines at high velocity, colour-plate misregistration on big impacts, and a red halftone damage vignette
+- Comic-book interface: a cover-style main menu, caption-box HUD, starburst call-outs and trading-card upgrades, in a print palette (paper, ink, red, blue, yellow) with an Okabe–Ito colour-blind variant
+- No image assets. Fonts (Anton, Archivo) are self-hosted from npm under the SIL Open Font License.
 - Pooled particles (fractured diamond shards), energy ribbons, rings and fracture distortion spheres
 - Post-processing: chromatic separation, vignette, paper grain, damage flash, low-health desaturation and the Phase Break overlay
 - Procedural Web Audio for every weapon and event, plus adaptive music (menu / calm / combat / boss) and a low-health heartbeat
@@ -243,7 +251,8 @@ Measured during development (macOS, Node 25, headless Chromium with a software r
 
 | Measurement | Result |
 |---|---|
-| Client JavaScript per frame (Survival, 11 enemies) | ~0.9 ms total, including ~0.14 ms per tick for the in-browser authoritative simulation |
+| Client JavaScript per frame (Survival, 10 enemies) | ~2.3 ms total (~1 ms of it renderer submission), including ~0.17 ms per tick for the in-browser authoritative simulation |
+| Draw calls per frame (all passes, Neon Rupture) | High 79 · Medium 72 · Low 45 |
 | Server simulation | 0.01–0.03 ms per tick per room with bot players (`node` headless benchmark) |
 | Snapshot size | ~300–700 bytes per client at 20 Hz |
 
@@ -362,6 +371,12 @@ quantum-pulse/
 │   ├── World.js · Player.js · Enemy.js · Weapons.js · Abilities.js · SpatialHash.js · Match.js
 ├── src/client/             presentation logic
 │   ├── GameClient.js · Prediction.js · Interpolation.js · Particles.js · Effects.js
+│   └── ink/                "Ink Comic" art direction
+│       ├── InkMaterials.js toon materials with halftone shading + floor seams
+│       ├── InkPost.js      depth/normal ink outlines + print post-processing
+│       ├── WorldBuilder.js arena geometry, comic sky, lighting, decals, signage
+│       ├── Characters.js   procedural animated Pulse Runner rigs
+│       └── EnemyModels.js  enemy silhouettes
 ├── scripts/check-syntax.js
 ├── docs/images/            screenshots
 └── tests/                  math · validation · weapons · movement · coop
@@ -387,8 +402,8 @@ Please read **[CONTRIBUTING.md](CONTRIBUTING.md)**. It defines the branch strate
 
 ## License
 
-[MIT](LICENSE) © Quantum Pulse contributors. Third-party dependencies (Three.js, Express, ws) are MIT-licensed.
+[MIT](LICENSE) © Quantum Pulse contributors. Third-party dependencies (Three.js, Express, ws) are MIT-licensed; the Anton and Archivo fonts are licensed under the SIL Open Font License 1.1.
 
 ## Originality and attribution
 
-Quantum Pulse is an **original project**. It is not affiliated with, endorsed by, or derived from any other game. Its code, names, mechanics, arenas, UI, visuals and sounds were written for this project. All visuals are generated procedurally at runtime and all audio is synthesised with the Web Audio API, so the repository contains no third-party art or audio assets.
+Quantum Pulse is an **original project**. It is not affiliated with, endorsed by, or derived from any other game. Its code, names, mechanics, arenas, UI, visuals and sounds were written for this project. All visuals are generated procedurally at runtime and all audio is synthesised with the Web Audio API, so the repository contains no third-party art or audio assets. The only third-party creative assets are two typefaces installed from npm: **Anton** (Vernon Adams) and **Archivo** (Omnibus-Type), both under the SIL Open Font License 1.1.
