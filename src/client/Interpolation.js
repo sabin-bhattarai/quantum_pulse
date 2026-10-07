@@ -7,8 +7,9 @@
  * use the shortest arc.
  *
  * WHY: snapshots arrive at 20 Hz with network jitter; drawing the newest
- * snapshot directly would make everything stutter. Rendering ~2 snapshot
- * intervals behind guarantees there is almost always a "next" snapshot.
+ * snapshot directly would make everything stutter. Rendering slightly more
+ * than one snapshot interval plus the measured jitter behind (see ServerClock)
+ * means there is almost always a "next" snapshot.
  *
  * EXTRAPOLATION: if snapshots stop arriving, entities continue along their
  * last observed velocity for at most NET.EXTRAPOLATE_MAX_MS, then freeze.
@@ -24,29 +25,80 @@
 import { SIM, NET } from '../shared/constants.js';
 import { lerpAngle } from '../shared/math.js';
 
-/** Clock sync: maps local time to an estimated server tick. */
+/**
+ * Clock sync and adaptive interpolation delay.
+ *
+ * CLOCK: maps local time to an estimated server tick. Each snapshot gives a
+ * sample `tick - localTime`; the offset converges quickly toward early
+ * arrivals and slowly toward late ones, approximating the minimum-latency path.
+ *
+ * ADAPTIVE DELAY: how late each snapshot arrives relative to that baseline is
+ * its "lateness". The render delay targets
+ *     snapshotInterval + p90(lateness) + INTERP_SAFETY_TICKS
+ * so a stable link renders barely one snapshot behind (lower latency, smaller
+ * lag-compensation rewinds), while a jittery link buffers enough to keep
+ * interpolating instead of extrapolating.
+ *
+ * LIMITS: delay is clamped to [interval + 0.5 tick, INTERP_DELAY_MAX_MS] and
+ * slews at most +6 / -1.5 ticks per second, so remote motion never visibly
+ * speeds up or jumps when the delay changes.
+ * Rare TCP stalls (beyond p90) are covered by short, capped extrapolation
+ * instead of a permanently deeper buffer: every extra tick of delay is also
+ * an extra tick of lag-compensation rewind.
+ * IF MODIFIED: faster slewing makes remote players visibly speed up/slow down;
+ * a higher percentile lets loss stalls inflate the delay and push shots past
+ * NET.LAG_COMP_MAX_MS.
+ */
 export class ServerClock {
-  constructor() {
+  /** @param {number} [snapshotIntervalTicks] ticks between snapshots (3 online at 20 Hz, 1 offline) */
+  constructor(snapshotIntervalTicks = SIM.TICK_RATE / SIM.SNAPSHOT_RATE) {
     this.offset = 0;
     this.ready = false;
     this.rate = SIM.TICK_RATE / 1000;
+    this.interval = snapshotIntervalTicks;
+    this.minDelay = snapshotIntervalTicks + 0.5;
+    this.maxDelay = Math.max(this.minDelay, (NET.INTERP_DELAY_MAX_MS / 1000) * SIM.TICK_RATE);
+    this.delayTicks = Math.min(this.maxDelay, Math.max(this.minDelay, (NET.INTERP_DELAY_MS / 1000) * SIM.TICK_RATE));
+    this.lateness = new Float64Array(NET.INTERP_JITTER_WINDOW);
+    this.samples = 0;
+    this.jitterTicks = 0;
   }
 
   /** Feed the tick of a freshly received snapshot. */
   observe(tick, nowMs) {
     const sample = tick - nowMs * this.rate;
     if (!this.ready) { this.offset = sample; this.ready = true; return; }
-    // Converge quickly toward earlier-than-expected arrivals (less queuing
-    // delay), slowly toward late ones (jitter), which approximates the
-    // minimum-latency path.
     const diff = sample - this.offset;
     if (Math.abs(diff) > 30) this.offset = sample; // large jump (tab was hidden)
     else this.offset += diff * (diff > 0 ? 0.15 : 0.02);
+    this.lateness[this.samples % this.lateness.length] = Math.max(0, this.offset - sample);
+    this.samples++;
+    if (this.samples % 10 === 0) {
+      const n = Math.min(this.samples, this.lateness.length);
+      const sorted = Array.from(this.lateness.subarray(0, n)).sort((a, b) => a - b);
+      this.jitterTicks = sorted[Math.floor(n * 0.9)];
+    }
+  }
+
+  /** Target render delay in ticks for the current jitter estimate. */
+  targetDelay() {
+    return Math.min(this.maxDelay, Math.max(this.minDelay, this.interval + this.jitterTicks + NET.INTERP_SAFETY_TICKS));
+  }
+
+  /** Slew the render delay toward its target (call once per frame). */
+  update(dt) {
+    const d = this.targetDelay() - this.delayTicks;
+    this.delayTicks += d > 0 ? Math.min(d, 6 * dt) : Math.max(d, -1.5 * dt);
   }
 
   /** Estimated current server tick (fractional). */
   now(nowMs) {
     return nowMs * this.rate + this.offset;
+  }
+
+  /** Tick that remote entities should be rendered at right now. */
+  renderTick(nowMs) {
+    return this.now(nowMs) - this.delayTicks;
   }
 }
 

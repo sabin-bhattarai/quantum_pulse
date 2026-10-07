@@ -68,8 +68,18 @@ export const NET = Object.freeze({
    * it without re-running the benchmark.
    */
   LAG_COMP_MAX_MS: 500,
-  /** Remote entities render this far behind the newest snapshot. */
+  /**
+   * Remote entities render this far behind the estimated server time. This is
+   * the starting value; the client then adapts it to measured snapshot jitter
+   * (see client/Interpolation.js ServerClock) between one snapshot interval
+   * and INTERP_DELAY_MAX_MS.
+   */
   INTERP_DELAY_MS: 110,
+  INTERP_DELAY_MAX_MS: 200,
+  /** Extra margin (ticks) on top of interval + jitter. */
+  INTERP_SAFETY_TICKS: 0.75,
+  /** Snapshots remembered for the jitter estimate (~3 s at 20 Hz). */
+  INTERP_JITTER_WINDOW: 60,
   /** Maximum extrapolation when snapshots are late. */
   EXTRAPOLATE_MAX_MS: 120,
   /** Number of snapshots kept for interpolation. */

@@ -66,8 +66,8 @@ export class GameClient {
     this.env = createCollisionEnv(this.arena);
     this.prediction = new Prediction(this.env);
     this.buffer = new SnapshotBuffer();
-    this.clock = new ServerClock();
-    this.interpDelayTicks = this.isLocal ? 1.5 : (NET.INTERP_DELAY_MS / 1000) * SIM.TICK_RATE;
+    this.snapshotInterval = SIM.TICK_RATE / (o.welcome.snapshotRate || SIM.SNAPSHOT_RATE);
+    this.clock = new ServerClock(this.snapshotInterval);
 
     this.seq = 0;
     this.acc = 0;
@@ -135,7 +135,7 @@ export class GameClient {
       // Fresh start after reconnect: drop stale prediction/interpolation data.
       this.prediction.reset();
       this.buffer.clear();
-      this.clock = new ServerClock();
+      this.clock = new ServerClock(this.snapshotInterval);
       this.pendingShots.length = 0;
     } else if (s === 'failed') {
       this.ui.loading(null);
@@ -583,7 +583,7 @@ export class GameClient {
     if (this.settings.holdToGrapple && this.prevGrappleHeld && !grappleHeld && this.prediction.state.grappling) buttons |= BTN.GRAPPLE_P;
     this.prevGrappleHeld = grappleHeld;
 
-    const renderTick = this.clock.now(performance.now()) - this.interpDelayTicks;
+    const renderTick = this.clock.renderTick(performance.now());
     const cmd = {
       seq: this.seq++, mx, mz, yaw: this.yaw, pitch: this.pitch, buttons, weapon: this.weapon,
       viewTick: Math.max(0, Math.floor(renderTick)),
@@ -817,7 +817,8 @@ export class GameClient {
   render(dt) {
     const R = this.renderer, P = R.palette, m = this.prediction.state;
     const now = performance.now();
-    const renderTick = this.clock.now(now) - this.interpDelayTicks;
+    this.clock.update(dt);
+    const renderTick = this.clock.renderTick(now);
     interpolateCategory(this.buffer, renderTick, '_p', 1, 4, this.rPlayers, this.frameNo);
     interpolateCategory(this.buffer, renderTick, '_e', 2, 5, this.rEnemies, this.frameNo);
 
