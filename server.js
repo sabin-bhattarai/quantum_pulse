@@ -56,10 +56,10 @@ if (config.trustProxy) app.set('trust proxy', 1);
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
-    "connect-src 'self' ws: wss:",
+    "connect-src 'self' ws: wss: https://vitals.vercel-insights.com",
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'none'",
