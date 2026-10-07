@@ -167,6 +167,7 @@ export class World {
     while (p.inputQueue.length > NET.MAX_INPUT_QUEUE) {
       const dropped = p.inputQueue.shift();
       p.lastAckSeq = dropped.seq;
+      p.net.dropped++;
     }
   }
 
@@ -263,12 +264,20 @@ export class World {
       p.lastInputTick = this.tick;
       processed++;
     }
-    if (processed === 0 && (this.tick - p.lastInputTick) * SIM.DT * 1000 > NET.INPUT_TIMEOUT_MS) {
-      // Client stalled: keep simulating physics with a neutral command so the
-      // player cannot freeze mid-air (does not advance the ack sequence).
-      const li = p.lastInput;
-      this.processInput(p, { seq: li.seq, mx: 0, mz: 0, yaw: li.yaw, pitch: li.pitch, buttons: 0, weapon: p.weaponIndex, viewTick: this.tick });
+    const net = p.net;
+    net.ticks++;
+    if (processed > 1) net.catchup++;
+    if (processed === 0) {
+      net.starved++;
+      if ((this.tick - p.lastInputTick) * SIM.DT * 1000 > NET.INPUT_TIMEOUT_MS) {
+        // Client stalled: keep simulating physics with a neutral command so the
+        // player cannot freeze mid-air (does not advance the ack sequence).
+        net.timeouts++;
+        const li = p.lastInput;
+        this.processInput(p, { seq: li.seq, mx: 0, mz: 0, yaw: li.yaw, pitch: li.pitch, buttons: 0, weapon: p.weaponIndex, viewTick: this.tick });
+      }
     }
+    net.queueSum += p.inputQueue.length;
   }
 
   processInput(p, inp) {
