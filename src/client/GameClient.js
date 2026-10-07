@@ -99,7 +99,7 @@ export class GameClient {
     this.vm = { weapon: 0, bob: 0, bobAmp: 0, sway: { x: 0, y: 0 }, recoil: 0, reload: 0, switch: 0, swing: 0, charge: 0, visible: true, muzzle: 0, muzzleColor: null };
 
     // feedback state
-    this.post = { damage: 0, phase: 0, lowHealth: 0, pulse: 0, flash: 0, reactor: 1 };
+    this.post = { damage: 0, phase: 0, lowHealth: 0, pulse: 0, flash: 0, reactor: 1, speed: 0 };
     this.eyeHeight = PLAYER.EYE_HEIGHT;
     this.prevGrappleHeld = false;
     this.lastVel = { x: 0, y: 0, z: 0 };
@@ -895,6 +895,7 @@ export class GameClient {
     const hpFrac = me ? me.hp / Math.max(1, me.mhp) : 1;
     post.lowHealth = me && me.al ? clamp((0.35 - hpFrac) / 0.35, 0, 1) : 0;
     post.reactor = w && w.rc !== undefined ? w.rc / 100 : 1;
+    post.speed = clamp((hs - 15) / 12, 0, 1); // comic speed lines at high velocity
     this.ui.setPhaseOverlay(m.phaseTimer > 0);
     this.audio.setLowHealth(post.lowHealth > 0.3);
     R.render(dt, post);
