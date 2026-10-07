@@ -59,8 +59,15 @@ export const NET = Object.freeze({
   INPUT_TIMEOUT_MS: 400,
   /** Disconnected players keep their slot (and stats) this long for reconnection. */
   RECONNECT_GRACE_MS: 30000,
-  /** Lag compensation: maximum rewind the server will honour. */
-  LAG_COMP_MAX_MS: 250,
+  /**
+   * Lag compensation: maximum rewind the server will honour. A shot needs
+   * roughly RTT + interpolation delay + input buffering of rewind, so 500 ms
+   * covers round trips up to ~250 ms (measured with scripts/netsim-bench.js).
+   * Beyond that, high-latency shooters must lead their targets. A larger
+   * window favours laggy shooters more ("shot behind cover"), so do not raise
+   * it without re-running the benchmark.
+   */
+  LAG_COMP_MAX_MS: 500,
   /** Remote entities render this far behind the newest snapshot. */
   INTERP_DELAY_MS: 110,
   /** Maximum extrapolation when snapshots are late. */

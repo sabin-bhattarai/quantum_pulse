@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WEAPONS, WeaponType, computeSpread, momentumDamageScale, falloffScale, lanceDamage } from '../src/shared/weapons.js';
-import { BTN, MODES, SIM } from '../src/shared/constants.js';
+import { BTN, MODES, SIM, NET } from '../src/shared/constants.js';
 import { Room } from '../src/server/Room.js';
 import { EnemyType } from '../src/server/Enemy.js';
 
@@ -103,7 +103,7 @@ test('lag compensation: a stale viewTick is clamped to the rewind window', () =>
   const { world } = setup();
   for (let i = 0; i < 120; i++) world.step();
   const clamped = world.clampRewindTick(0);
-  assert.ok(world.tick - clamped <= 16, 'cannot rewind further than LAG_COMP_MAX_MS');
+  assert.ok(world.tick - clamped <= Math.floor((NET.LAG_COMP_MAX_MS / 1000) * SIM.TICK_RATE), 'cannot rewind further than LAG_COMP_MAX_MS');
   assert.equal(world.clampRewindTick(world.tick + 500), world.tick, 'cannot shoot into the future');
 });
 
