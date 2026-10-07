@@ -59,6 +59,8 @@ export class Player {
     this.inputBudget = 4;
     this.prevButtons = 0;
     this.viewTick = 0;
+    /** Input-arrival health counters (diagnostics; see World.simulatePlayerInputs). */
+    this.net = { ticks: 0, starved: 0, catchup: 0, timeouts: 0, dropped: 0, queueSum: 0 };
 
     // Vital stats
     this.mods = Player.defaultMods();
