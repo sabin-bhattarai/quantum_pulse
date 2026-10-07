@@ -1065,6 +1065,8 @@ export class GameClient {
         `fps       ${this.fps.toFixed(0)}\nframe     ${this.frameMs.toFixed(2)} ms\nsrv tick  ${w ? w.st : 0} ms\nping      ${this.isLocal ? 'local' : rtt + ' ms'}\n` +
         `entities  ${this.rPlayers.size}p ${this.rEnemies.size}e ${w ? w.pr.length : 0}proj ${w ? w.f.length : 0}frac\n` +
         `draws     ${st.calls}  tris ${st.triangles}\nparticles ${st.particles}\nsnapbuf   ${this.buffer.snaps.length}  corr ${this.prediction.corrections} (${this.prediction.lastCorrection.toFixed(3)} m)\n` +
+        `interp    ${Math.round(this.clock.delayTicks * 1000 / SIM.TICK_RATE)} ms  jitter ${Math.round(this.clock.jitterTicks * 1000 / SIM.TICK_RATE)} ms\n` +
+        `srv input buffer ${me.nb ? `${me.nb[1]}/${me.nb[0]}` : '-'} ticks\n` +
         `seq ${this.seq} ack ${me.a}  state ${ms.state}${mem}`,
       );
     }
