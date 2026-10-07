@@ -5,40 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quantum Pulse</title>
   <meta name="description" content="Quantum Pulse — an original high-speed browser arena shooter.">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#16130f">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/vendor/fonts/anton/files/anton-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/vendor/fonts/anton/latin-400.css">
+  <link rel="stylesheet" href="/vendor/fonts/archivo/wdth.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <canvas id="game-canvas" aria-label="Quantum Pulse game view"></canvas>
   <canvas id="menu-bg" aria-hidden="true"></canvas>
 
-  <!-- ================= MAIN MENU ================= -->
+  <!-- ================= MAIN MENU (comic cover) ================= -->
   <section id="screen-menu" class="screen active" aria-label="Main menu">
     <div class="menu-layout">
-      <header class="logo" aria-label="Quantum Pulse">
-        <div class="logo-glyph" aria-hidden="true"><span></span><span></span><span></span></div>
-        <h1 class="logo-text" data-text="QUANTUM PULSE">QUANTUM PULSE</h1>
-        <p class="logo-sub">phase-shift arena combat</p>
+      <header class="cover">
+        <div class="issue" aria-hidden="true"><small>Issue</small><b>#01</b></div>
+        <div class="logo">
+          <h1 class="logo-text" aria-label="Quantum Pulse">Quantum<span class="row2">Pulse!</span></h1>
+          <p class="logo-sub">Phase-shift arena combat</p>
+        </div>
       </header>
-      <nav class="menu-buttons">
-        <button class="btn primary" data-action="open-solo">Play Solo <small>Survival waves</small></button>
-        <button class="btn" data-action="open-online" id="btn-online">Online Multiplayer <small>Free-for-all · 2–12</small></button>
-        <button class="btn" data-action="open-coop" id="btn-coop">Co-op Rift Defense <small>Defend the reactor · 1–4</small></button>
-        <button class="btn" data-action="open-training">Training Range <small>Offline practice</small></button>
+
+      <nav aria-label="Game modes">
+        <div class="menu-modes">
+          <button class="mode-card hero" data-action="open-solo">
+            <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="28" class="i-paper"/><path d="M40 12a28 28 0 0 1 0 56M40 22a18 18 0 0 0 0 36" class="i-line"/><circle cx="40" cy="40" r="6" class="i-ink"/><path d="M40 2v16M40 62v16M2 40h16M62 40h16" class="i-line"/></svg>
+            <b>Play Solo</b><span>Survive the rift waves. Titan every 5th wave.</span><em class="tag">Offline</em>
+          </button>
+          <button class="mode-card" data-action="open-online" id="btn-online">
+            <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="20" cy="40" r="15" class="i-red"/><circle cx="20" cy="40" r="15" class="i-line"/><circle cx="60" cy="40" r="15" class="i-blue"/><circle cx="60" cy="40" r="15" class="i-line"/><path d="M44 14l-8 22h9l-8 30 15-34h-9l7-18z" class="i-yellow"/><path d="M44 14l-8 22h9l-8 30 15-34h-9l7-18z" class="i-line"/></svg>
+            <b>Free-for-All</b><span>Server-authoritative deathmatch, 2–12 runners.</span><em class="tag">Online</em>
+          </button>
+          <button class="mode-card" data-action="open-coop" id="btn-coop">
+            <svg viewBox="0 0 80 80" aria-hidden="true"><path d="M40 6l28 10v22c0 18-12 30-28 36C24 68 12 56 12 38V16z" class="i-blue"/><path d="M40 6l28 10v22c0 18-12 30-28 36C24 68 12 56 12 38V16z" class="i-line"/><circle cx="40" cy="38" r="11" class="i-yellow"/><circle cx="40" cy="38" r="11" class="i-line"/><circle cx="40" cy="38" r="4" class="i-ink"/></svg>
+            <b>Rift Defense</b><span>Hold the reactor with up to four friends.</span><em class="tag">Co-op</em>
+          </button>
+          <button class="mode-card" data-action="open-training">
+            <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="36" r="26" class="i-paper"/><circle cx="40" cy="36" r="26" class="i-line"/><circle cx="40" cy="36" r="16" class="i-red"/><circle cx="40" cy="36" r="16" class="i-line"/><circle cx="40" cy="36" r="6" class="i-paper"/><circle cx="40" cy="36" r="6" class="i-line"/><path d="M40 62v14M28 76h24" class="i-line"/></svg>
+            <b>Training</b><span>Dummies, every weapon, movement tutorial.</span><em class="tag">Offline</em>
+          </button>
+        </div>
         <div class="menu-row">
           <button class="btn small" data-action="open-settings">Settings</button>
           <button class="btn small" data-action="open-howto">How to Play</button>
           <button class="btn small" data-action="open-credits">Credits</button>
         </div>
       </nav>
+
       <aside class="menu-side">
-        <label class="field">
-          <span>Runner name</span>
-          <input id="input-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Pulse Runner">
-        </label>
-        <div class="best" id="best-score" aria-live="polite"></div>
-        <div class="net-status" id="net-status"></div>
+        <div class="caption">
+          <span class="label">Runner</span>
+          <label class="field">
+            <span>Your name</span>
+            <input id="input-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Pulse Runner">
+          </label>
+        </div>
+        <div class="caption">
+          <span class="label">Best runs</span>
+          <div class="best" id="best-score" aria-live="polite"></div>
+        </div>
+        <div class="caption">
+          <span class="label">Server</span>
+          <div class="net-status" id="net-status"></div>
+        </div>
       </aside>
     </div>
     <footer class="menu-footer">An original game · v0.1.0 · <span id="build-info"></span></footer>
