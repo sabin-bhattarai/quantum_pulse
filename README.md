@@ -8,6 +8,10 @@
 
 Quantum Pulse is an original, fast-paced first-person arena shooter built with Three.js and Node.js. You play a **Pulse Runner**, fighting through unstable arenas that phase between versions of reality. You can survive escalating waves alone, fight up to 11 other runners in a server-authoritative free-for-all, or defend a quantum reactor with up to three friends.
 
+| In the run | Between waves | Run over |
+| --- | --- | --- |
+| ![Solo survival HUD with the wave call-out, kill feed, vitals, Pulse meter and ammo](docs/images/gameplay.jpg) | ![Upgrade pick: three trading-card upgrades](docs/images/upgrade.jpg) | ![Results screen with score, wave, time, kills and accuracy](docs/images/results.jpg) |
+
 | Neon Rupture | The Folded Archive | Reactor Null (co-op) |
 | --- | --- | --- |
 | ![Neon Rupture](docs/images/neon-rupture.jpg) | ![The Folded Archive](docs/images/folded-archive.jpg) | ![Reactor Null](docs/images/reactor-null.jpg) |
