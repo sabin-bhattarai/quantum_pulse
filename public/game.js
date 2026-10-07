@@ -193,6 +193,7 @@ class App {
 
   wireInput() {
     this.input.on('lockchange', (locked) => {
+      document.body.classList.toggle('locked', locked);
       if (!this.client) return;
       if (locked) {
         if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
