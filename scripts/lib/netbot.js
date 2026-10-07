@@ -47,6 +47,7 @@ export class NetBot {
         const msg = JSON.parse(raw);
         if (msg.t === MSG.WELCOME) {
           this.welcome = msg;
+          this.clock = new ServerClock(SIM.TICK_RATE / msg.snapshotRate);
           this.arena = createArena(msg.arena);
           this.env = createCollisionEnv(this.arena);
           this.prediction = new Prediction(this.env);
@@ -84,13 +85,9 @@ export class NetBot {
     }
   }
 
-  /** Render tick the player would be looking at right now. */
+  /** Render tick the player would be looking at right now (same adaptive delay as the browser client). */
   renderTick(now = performance.now()) {
-    return this.clock.now(now) - this.interpDelayTicks(now);
-  }
-
-  interpDelayTicks() {
-    return (NET.INTERP_DELAY_MS / 1000) * SIM.TICK_RATE;
+    return this.clock.renderTick(now);
   }
 
   /** Run the fixed-tick loop until stop(). */
@@ -111,6 +108,8 @@ export class NetBot {
 
   tick(script, now) {
     this.stats.ticks++;
+    this.clock.update(SIM.DT);
+    this.stats.delaySum = (this.stats.delaySum || 0) + this.clock.delayTicks;
     // What this player sees of everyone else (same code path as GameClient).
     this.frame++;
     const rt = this.renderTick(now);
