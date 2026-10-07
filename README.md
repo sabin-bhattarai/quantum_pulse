@@ -319,7 +319,9 @@ Simulation constants (tick rate, speeds, limits) are compile-time values in `src
 
 ## Browser compatibility
 
-Tested during development in Chromium (Brave), headless. Designed for current Chrome, Edge, Firefox and Safari on desktop: WebGL 1/2, ES modules, Pointer Lock, Web Audio and WebSocket. If WebGL is missing the game shows an explanation instead of crashing, and if WebSockets or the server are unavailable the online modes are disabled while offline modes keep working. Touch and gamepad input are not implemented yet. The action-based input layer ([`public/input.js`](public/input.js)) is where they would plug in.
+Tested during development in Chromium (Brave), headless. Designed for current Chrome, Edge, Firefox and Safari on desktop: WebGL 1/2, ES modules, Pointer Lock, Web Audio and WebSocket. If WebGL is missing the game shows an explanation instead of crashing, and if WebSockets or the server are unavailable the online modes are disabled while offline modes keep working. Phones and tablets load the menu but show a notice instead of offering touch controls, because touch and gamepad input are not implemented yet. The action-based input layer ([`public/input.js`](public/input.js)) is where they would plug in.
+
+<p align="center"><img src="docs/images/phone.jpg" alt="Main menu on a phone, with the keyboard-and-mouse notice" width="260"></p>
 
 ## Troubleshooting
 
