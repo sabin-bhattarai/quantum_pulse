@@ -369,6 +369,7 @@ quantum-pulse/
 │   ├── network.js          WebSocketTransport (online) / LocalTransport (offline)
 │   ├── audio.js            procedural Web Audio engine + music
 │   ├── ui.js               menus, settings, HUD, overlays
+│   ├── analytics.js        Vercel Web Analytics loader (page views)
 │   └── assets/icon.svg
 ├── src/shared/             used by both server and client
 │   ├── constants.js · protocol.js · math.js · validation.js
