@@ -183,13 +183,37 @@ Six target dummies (two of them moving) are placed along an automatically valida
 | Input | Commands of `[seq, mx, mz, yaw, pitch, buttons, weapon, viewTick]`, sent at 30 Hz in batches |
 | Prediction | The client applies each command immediately with the shared movement code |
 | Reconciliation | Snapshots carry the authoritative movement state plus the last processed `seq`. The client rewinds to that state, replays newer commands, and smooths small errors over ~100 ms ([`Prediction.js`](src/client/Prediction.js)). |
-| Interpolation | Remote entities render ~110 ms in the past between bracketing snapshots. Extrapolation is capped at 120 ms ([`Interpolation.js`](src/client/Interpolation.js)). |
-| Lag compensation | The server keeps a position history for players and enemies and rewinds hitscan targets to the shooter's `viewTick`, capped at 250 ms |
+| Interpolation | Remote entities render in the past between bracketing snapshots. The delay adapts to measured snapshot jitter: about 68 ms on a stable link, up to 200 ms on a jittery one. Extrapolation is capped at 120 ms ([`Interpolation.js`](src/client/Interpolation.js)). |
+| Server input pacing | A per-player jitter buffer consumes exactly one command per tick and sizes itself from measured arrival jitter. Backlogs after a stall are caught up at up to 3 per tick, and a time credit stops clients from running faster than real time ([`World.simulatePlayerInputs`](src/server/World.js)). |
+| Lag compensation | The server keeps a position history for players and enemies and rewinds hitscan targets to the shooter's `viewTick`, capped at 500 ms |
 | Projectiles | Extrapolated to the present on the client so incoming fire can be dodged accurately |
 | Snapshot compression | Quantised numbers, array-encoded entities, one shared JSON string per room per snapshot, scoreboard only ~2×/s |
 | Reconnection | A session token in `sessionStorage` plus exponential back-off. The server keeps your slot and stats for 30 s. |
 
 Protocol constants such as tick rate, snapshot rate, interpolation delay, packet size, queue lengths and timeouts live in [`src/shared/constants.js`](src/shared/constants.js).
+
+### Testing under bad network conditions
+
+`scripts/netsim-proxy.js` sits between clients and the server and adds latency, jitter and packet loss. Because WebSocket runs over TCP, loss is modelled as a retransmission delay that also holds back later messages.
+
+```bash
+npm start                              # game server on :3000
+npm run netsim -- --profile poor       # degraded proxy on :3001 -> open http://localhost:3001
+npm run netsim -- --rtt 120 --jitter 30 --loss 0.02
+npm run bench:net                      # automated benchmark across all profiles
+```
+
+`npm run bench:net` runs the real server, routes two headless clients (built on the real prediction and interpolation code) through the proxy, and measures prediction corrections, input starvation, dropped inputs and server-confirmed hit registration. A shooter aims at exactly what it sees while a target strafes and jumps. Results from development (20 s per profile, before → after the netcode tuning):
+
+| Profile | RTT | Jitter | Loss | Hits | Dropped inputs | Corrections / min |
+|---|---|---|---|---|---|---|
+| lan | ~3 ms | 0 | 0 | 100% → 100% | 0 → 0 | 0 → 0 |
+| good | ~46 ms | 6 ms | 0 | 100% → 100% | 0 → 0 | 0 → 0 |
+| average | ~110 ms | 20 ms | 0.5% | 37% → 100% | 10 → 0 | 9 → 0 |
+| poor | ~225 ms | 45 ms | 2% | 16% → 98% | 52 → 0 | 33 → 0 |
+| terrible | ~450 ms | 90 ms | 5% | 3% → 15% | 200 → 0 | 63 → 0 |
+
+*Terrible* is intentionally outside the lag-compensation window. Those players have to lead their targets.
 
 ## Security model
 
@@ -242,6 +266,8 @@ Open two browser windows (or invite someone on your LAN to `http://<your-ip>:300
 | `npm run dev` | Server with auto-restart on file changes (`node --watch`) |
 | `npm test` | Unit and integration tests (`node:test`) |
 | `npm run check` | Parse every JS file (catches syntax errors in browser-only modules) |
+| `npm run netsim` | Network condition simulator proxy (see [Testing under bad network conditions](#testing-under-bad-network-conditions)) |
+| `npm run bench:net` | Automated netcode benchmark |
 
 ## Configuration
 
@@ -295,8 +321,8 @@ Tested during development in Chromium (Brave), headless. Designed for current Ch
 ## Testing
 
 ```bash
-npm test        # 46 tests
-npm run check   # syntax check of all 36 source files
+npm test        # 51 tests
+npm run check   # syntax check of all 40 source files
 ```
 
 The suite ([`tests/`](tests)) covers:
@@ -305,6 +331,7 @@ The suite ([`tests/`](tests)) covers:
 - **weapons**: table invariants, spread/momentum/falloff/charge curves, server-enforced fire rate, ammunition and reload, ownership, hitscan damage, the lag-compensation clamp, Echo repeats, fracture creation, Lance charge, and rejection of injected damage, score and positions
 - **movement**: determinism, landing, speed limits, walls, jump buffer, coyote time, slide and slide-jump, dash charges, steps, phase barriers, grapple reel and launch, fracture caps, every arena spawn point, and prediction/reconciliation converging after an unpredicted knockback
 - **co-op**: tether link and break, downed and revive, bleed-out, and Pulse transfer
+- **netcode**: one-command-per-tick input pacing, catch-up after stalls without drops, time-credit speed-hack limit, stall recovery, and the adaptive interpolation delay
 
 During development the game was also driven in a headless browser across all four modes, including two-client online FFA and co-op through the real server, and soak-tested for 30 simulated minutes per arena (33+ waves, every enemy type, all Titan phases, bounded pools). Those harness scripts are not part of the repository.
 
@@ -349,6 +376,7 @@ Compared with the originally requested layout, it adds `shared/movement.js`, `sh
 - Gamepad and touch input sources on the existing action layer
 - Spectator / kill-cam, team modes, and server-side match history
 - Binary snapshot encoding with delta compression against acknowledged snapshots
+- Netcode CI job: run `npm run bench:net` on pull requests and fail on hit-registration regressions
 - Navigation mesh for ground enemies (all current enemies fly or hover)
 - Asset pipeline for optional recorded audio (`AudioEngine.registerBuffer` is already in place)
 - Horizontal scaling with a room directory
