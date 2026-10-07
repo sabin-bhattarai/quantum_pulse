@@ -300,6 +300,7 @@ Simulation constants (tick rate, speeds, limits) are compile-time values in `src
 - Health check: `GET /healthz` returns `{ ok, uptime, rooms, players, connections, protocol }`.
 - Rooms live in memory, so scaling horizontally needs room-affinity routing, which is not built in.
 - Set `ALLOWED_ORIGINS` in production, and consider OS-level connection limits.
+- **Analytics (Vercel):** `public/analytics.js` loads Vercel Web Analytics from the same origin, so the CSP stays `script-src 'self'`. Enable it under *Project → Analytics* in the Vercel dashboard; until then `/_vercel/insights/script.js` returns 404 and nothing is tracked. It is skipped on localhost and sets no cookies.
 
 ## Browser compatibility
 
