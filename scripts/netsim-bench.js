@@ -101,8 +101,8 @@ async function runProfile(name, gamePort) {
 
   await wait(2500); // settle: snapshots buffered, clocks synced, teleport corrections done
   const reset = () => {
-    for (const b of [shooter, target]) Object.assign(b.stats, { ticks: 0, snapshots: 0, extrapolatedFrames: 0, frames: 0, corrections: 0, correctionSum: 0, correctionMax: 0, arrivalGaps: [] });
-    for (const p of [sp, tp]) Object.assign(p.net, { ticks: 0, starved: 0, catchup: 0, timeouts: 0, dropped: 0, queueSum: 0 });
+    for (const b of [shooter, target]) Object.assign(b.stats, { delaySum: 0, ticks: 0, snapshots: 0, extrapolatedFrames: 0, frames: 0, corrections: 0, correctionSum: 0, correctionMax: 0, arrivalGaps: [] });
+    for (const p of [sp, tp]) Object.assign(p.net, { ticks: 0, starved: 0, catchup: 0, timeouts: 0, dropped: 0, skipped: 0, queueSum: 0 });
     sp.stats.shots = 0; sp.stats.hits = 0;
   };
   reset();
@@ -113,6 +113,7 @@ async function runProfile(name, gamePort) {
     profile: name,
     rtt: Math.round(shooter.rtt),
     snapGapP95: Math.round(percentile(shooter.stats.arrivalGaps, 0.95)),
+    interpMs: Math.round(((shooter.stats.delaySum || 0) / Math.max(1, shooter.stats.ticks)) * (1000 / 60)),
     extrapolatedPct: pct(shooter.stats.extrapolatedFrames, shooter.stats.frames),
     corrPerMin: (target.stats.corrections / SECONDS) * 60,
     corrAvgCm: target.stats.corrections ? (target.stats.correctionSum / target.stats.corrections) * 100 : 0,
@@ -121,6 +122,8 @@ async function runProfile(name, gamePort) {
     catchupPct: pct(tnet.catchup + snet.catchup, tnet.ticks + snet.ticks),
     timeouts: tnet.timeouts + snet.timeouts,
     dropped: tnet.dropped + snet.dropped,
+    skipped: tnet.skipped + snet.skipped,
+    bufferTarget: `${sp.bufferTarget}/${tp.bufferTarget}`,
     queueAvg: (tnet.queueSum + snet.queueSum) / Math.max(1, tnet.ticks + snet.ticks),
     hitPct: pct(Math.min(sp.stats.hits, sp.stats.shots), sp.stats.shots),
     shots: sp.stats.shots,
@@ -149,9 +152,9 @@ if (args.json) {
 } else {
   const f = (v, d = 1) => (typeof v === 'number' ? v.toFixed(d) : v);
   const cols = [
-    ['profile', (r) => r.profile], ['rtt ms', (r) => r.rtt], ['snap gap p95', (r) => r.snapGapP95], ['extrap %', (r) => f(r.extrapolatedPct)],
+    ['profile', (r) => r.profile], ['rtt ms', (r) => r.rtt], ['snap gap p95', (r) => r.snapGapP95], ['interp ms', (r) => r.interpMs], ['extrap %', (r) => f(r.extrapolatedPct)],
     ['corr/min', (r) => f(r.corrPerMin)], ['corr avg cm', (r) => f(r.corrAvgCm)], ['corr max cm', (r) => f(r.corrMaxCm)],
-    ['srv starved %', (r) => f(r.starvedPct)], ['catch-up %', (r) => f(r.catchupPct)], ['timeouts', (r) => r.timeouts], ['dropped', (r) => r.dropped],
+    ['srv starved %', (r) => f(r.starvedPct)], ['catch-up %', (r) => f(r.catchupPct)], ['timeouts', (r) => r.timeouts], ['dropped', (r) => r.dropped], ['skipped', (r) => r.skipped], ['buffer', (r) => r.bufferTarget],
     ['queue avg', (r) => f(r.queueAvg, 2)], ['hit %', (r) => f(r.hitPct)], ['shots', (r) => r.shots],
   ];
   console.log(`\n${SECONDS}s per profile\n`);
