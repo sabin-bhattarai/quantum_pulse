@@ -33,10 +33,28 @@ export const NET = Object.freeze({
   MSG_BURST: 40,
   /** Protocol violations before a connection is dropped. */
   VIOLATION_LIMIT: 30,
-  /** Inputs queued per player beyond this are discarded (prevents speed-hack bursts). */
-  MAX_INPUT_QUEUE: 12,
-  /** Max input commands processed per player per server tick (allows small catch-up only). */
-  MAX_INPUTS_PER_TICK: 2,
+  /**
+   * Hard cap on queued input commands per player (1 s). Only exceeded by a
+   * client sending faster than real time; the oldest commands are dropped.
+   */
+  MAX_INPUT_QUEUE: 60,
+  /**
+   * Server-side input jitter buffer (in ticks). The server consumes one
+   * command per tick and keeps this many queued to absorb arrival jitter; the
+   * target follows the measured jitter (see World.queueInputs).
+   */
+  INPUT_BUFFER_MIN: 1,
+  INPUT_BUFFER_MAX: 8,
+  /** Input packets remembered per player for the arrival-jitter estimate (~4 s at 30 Hz). */
+  INPUT_JITTER_WINDOW: 128,
+  /** Most commands consumed in one tick while catching up on a backlog. */
+  INPUT_CATCHUP_MAX_PER_TICK: 3,
+  /**
+   * Anti speed-hack time credit: a player earns one command per tick and may
+   * bank at most this many (0.5 s), so long-term movement can never run
+   * faster than real time, while a legitimately stalled client can catch up.
+   */
+  INPUT_CREDIT_MAX_TICKS: 30,
   /** After this long without input the server simulates a neutral input for the player. */
   INPUT_TIMEOUT_MS: 400,
   /** Disconnected players keep their slot (and stats) this long for reconnection. */

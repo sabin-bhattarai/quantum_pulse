@@ -157,18 +157,49 @@ export class World {
 
   /** Accept validated inputs from the transport layer. */
   queueInputs(p, inputs) {
+    if (inputs.length) this.observeArrival(p, inputs[inputs.length - 1].seq);
     for (const inp of inputs) {
       if (inp.seq <= p.lastAckSeq) continue; // duplicate / replay
       const last = p.inputQueue.length ? p.inputQueue[p.inputQueue.length - 1].seq : p.lastAckSeq;
       if (inp.seq <= last) continue;
       p.inputQueue.push(inp);
     }
-    // Bounded queue: drop the oldest commands beyond the limit (anti speed-hack).
+    // Hard cap (1 s of commands): only a client sending faster than real time
+    // reaches it. The oldest commands are dropped.
     while (p.inputQueue.length > NET.MAX_INPUT_QUEUE) {
       const dropped = p.inputQueue.shift();
       p.lastAckSeq = dropped.seq;
       p.net.dropped++;
     }
+  }
+
+  /**
+   * Input arrival jitter estimate -> jitter buffer target.
+   *
+   * WHAT: for each packet, offset = (server tick on arrival) - (newest seq in
+   * the packet). Client ticks and server ticks advance at the same rate, so on
+   * a perfect network the offset is constant; any extra delay shows up as a
+   * larger offset. Lateness = offset - (smallest offset in the window).
+   * The buffer target is the 90th-percentile lateness (in ticks) + 1.
+   *
+   * WHY: holding exactly as many commands as the network usually needs gives
+   * smooth one-per-tick consumption with the least added input delay. Using
+   * p90 rather than the maximum ignores rare loss stalls (TCP retransmits),
+   * which catch-up handles better than a permanently deeper buffer.
+   *
+   * LIMITS: window of INPUT_JITTER_WINDOW packets; target clamped to
+   * [INPUT_BUFFER_MIN, INPUT_BUFFER_MAX]; recomputed every 16 packets.
+   */
+  observeArrival(p, newestSeq) {
+    p.lastArrivalTick = this.tick;
+    const n = NET.INPUT_JITTER_WINDOW;
+    p.arrivalOffsets[p.arrivalCount % n] = this.tick - newestSeq;
+    p.arrivalCount++;
+    if (p.arrivalCount % 16 !== 0) return;
+    const count = Math.min(p.arrivalCount, n);
+    const sorted = Array.from(p.arrivalOffsets.subarray(0, count)).sort((a, b) => a - b);
+    const lateness = sorted[Math.floor(count * 0.9)] - sorted[0];
+    p.bufferTarget = clamp(Math.ceil(lateness) + 1, NET.INPUT_BUFFER_MIN, NET.INPUT_BUFFER_MAX);
   }
 
   /**
@@ -229,7 +260,7 @@ export class World {
 
     this.rules.preUpdate(dt);
 
-    // 1) players: consume inputs (bounded by a per-player token bucket)
+    // 1) players: consume inputs through their jitter buffers (see simulatePlayerInputs)
     for (const p of this.activePlayers) this.simulatePlayerInputs(p);
 
     // 2) per-tick player upkeep
@@ -252,32 +283,74 @@ export class World {
     for (const p of this.activePlayers) p.recordHistory(this.tick);
   }
 
+  /**
+   * Consume queued input commands for one player this tick.
+   *
+   * JITTER BUFFER: commands arrive in bursts (clients batch them at 30 Hz and
+   * networks add jitter), but the simulation needs one per tick. Consuming
+   * whatever is queued would make players lurch (two steps, then none) for
+   * everyone watching them. Instead the server consumes exactly one command
+   * per tick while keeping `bufferTarget` commands in reserve (the target
+   * follows measured arrival jitter, see observeArrival). When the queue runs
+   * dry, consumption pauses until it refills to the target ("rebuffering").
+   *
+   * CATCH-UP: a backlog well above the target (e.g. after a TCP retransmission
+   * stall) is drained at up to INPUT_CATCHUP_MAX_PER_TICK per tick.
+   *
+   * ANTI SPEED-HACK: every consumed command spends one unit of time credit,
+   * which accrues at one per tick and is capped. However fast a client
+   * sends, it can never be simulated faster than real time on average.
+   *
+   * IF MODIFIED: consuming more than one command per tick without a backlog
+   * reintroduces lurching; removing the credit cap lets clients bank time.
+   */
   simulatePlayerInputs(p) {
-    p.inputBudget = Math.min(p.inputBudget + 1, 6);
+    const q = p.inputQueue;
+    const net = p.net;
+    p.inputCredit = Math.min(p.inputCredit + 1, NET.INPUT_CREDIT_MAX_TICKS);
+    // Commands for ticks that were already simulated with neutral input (after
+    // a stall) are acknowledged but not re-simulated, keeping time consistent.
+    while (p.owedSkips > 0 && q.length) {
+      const inp = q.shift();
+      p.lastAckSeq = inp.seq;
+      p.lastInput = inp;
+      p.owedSkips--;
+      net.skipped++;
+    }
+    if (p.rebuffering && q.length >= p.bufferTarget) p.rebuffering = false;
+    let budget = 0;
+    if (!p.rebuffering && q.length) {
+      const excess = q.length - p.bufferTarget;
+      budget = excess > 6 ? NET.INPUT_CATCHUP_MAX_PER_TICK : excess > 2 ? 2 : 1;
+    }
     let processed = 0;
-    while (p.inputQueue.length && p.inputBudget >= 1 && processed < NET.MAX_INPUTS_PER_TICK) {
-      const inp = p.inputQueue.shift();
+    while (processed < budget && q.length && p.inputCredit >= 1) {
+      const inp = q.shift();
       this.processInput(p, inp);
       p.lastAckSeq = inp.seq;
       p.lastInput = inp;
-      p.inputBudget -= 1;
+      p.inputCredit -= 1;
       p.lastInputTick = this.tick;
       processed++;
     }
-    const net = p.net;
     net.ticks++;
     if (processed > 1) net.catchup++;
     if (processed === 0) {
       net.starved++;
-      if ((this.tick - p.lastInputTick) * SIM.DT * 1000 > NET.INPUT_TIMEOUT_MS) {
+      p.rebuffering = true; // ran dry: refill to the target before resuming
+      // Timeout is measured from the last packet ARRIVAL, so commands that are
+      // queued (or being skipped after a stall) never trigger it.
+      if ((this.tick - p.lastArrivalTick) * SIM.DT * 1000 > NET.INPUT_TIMEOUT_MS) {
         // Client stalled: keep simulating physics with a neutral command so the
-        // player cannot freeze mid-air (does not advance the ack sequence).
+        // player cannot freeze mid-air. The matching late commands are skipped.
         net.timeouts++;
+        p.owedSkips = Math.min(p.owedSkips + 1, NET.MAX_INPUT_QUEUE);
+        p.inputCredit = Math.max(0, p.inputCredit - 1);
         const li = p.lastInput;
         this.processInput(p, { seq: li.seq, mx: 0, mz: 0, yaw: li.yaw, pitch: li.pitch, buttons: 0, weapon: p.weaponIndex, viewTick: this.tick });
       }
     }
-    net.queueSum += p.inputQueue.length;
+    net.queueSum += q.length;
   }
 
   processInput(p, inp) {

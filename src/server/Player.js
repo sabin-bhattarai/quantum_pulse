@@ -55,12 +55,21 @@ export class Player {
     this.lastAckSeq = -1;
     this.lastInput = { seq: -1, mx: 0, mz: 0, yaw: 0, pitch: 0, buttons: 0, weapon: 0, viewTick: 0 };
     this.lastInputTick = 0;
-    /** token bucket: earns one input per tick so long-term input rate == tick rate (anti speed-hack) */
-    this.inputBudget = 4;
+    /** Time credit: earns one command per tick (anti speed-hack, see NET.INPUT_CREDIT_MAX_TICKS). */
+    this.inputCredit = NET.INPUT_BUFFER_MAX;
+    /** Jitter buffer state (see World.simulatePlayerInputs). */
+    this.bufferTarget = NET.INPUT_BUFFER_MIN;
+    this.rebuffering = true;
+    /** Ring buffer of packet arrival offsets (tick - seq) for the jitter estimate. */
+    this.arrivalOffsets = new Float64Array(NET.INPUT_JITTER_WINDOW);
+    this.arrivalCount = 0;
+    this.lastArrivalTick = 0;
+    /** Ticks already simulated with neutral input that late commands must not repeat. */
+    this.owedSkips = 0;
     this.prevButtons = 0;
     this.viewTick = 0;
     /** Input-arrival health counters (diagnostics; see World.simulatePlayerInputs). */
-    this.net = { ticks: 0, starved: 0, catchup: 0, timeouts: 0, dropped: 0, queueSum: 0 };
+    this.net = { ticks: 0, starved: 0, catchup: 0, timeouts: 0, dropped: 0, skipped: 0, queueSum: 0 };
 
     // Vital stats
     this.mods = Player.defaultMods();
