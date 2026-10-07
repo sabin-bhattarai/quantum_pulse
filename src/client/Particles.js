@@ -1,7 +1,7 @@
 /**
  * Quantum Pulse — pooled GPU particle system.
  *
- * One THREE.Points draw call renders every particle. Particles live in
+ * One THREE.Points draw call renders every particle (inked comic shards). Particles live in
  * preallocated typed arrays; dead particles are removed by swap-with-last so
  * the live set stays packed in [0, count) and the draw range shrinks with it.
  * No objects are allocated while playing. Capacity depends on the particle
@@ -35,8 +35,9 @@ void main() {
   p = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
   float d = abs(p.x) * 1.3 + abs(p.y);
   if (d > 1.0) discard;
-  float core = 1.0 - smoothstep(0.0, 0.6, d);
-  gl_FragColor = vec4(vColor.rgb * (0.6 + core), vColor.a * (1.0 - d * 0.6));
+  // inked shard: flat colour with a black rim
+  vec3 col = d > 0.72 ? vec3(0.086, 0.075, 0.059) : vColor.rgb;
+  gl_FragColor = vec4(col, vColor.a);
 }`;
 
 export class ParticleSystem {
@@ -81,7 +82,6 @@ export class ParticleSystem {
       uniforms: { uScale: { value: 300 } },
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
     });
     this.points = new THREE.Points(g, m);
     this.points.frustumCulled = false;

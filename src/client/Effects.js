@@ -40,13 +40,14 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }`;
 
+// Inked stroke: solid colour core with a black ink border on both sides.
 const RIBBON_FRAG = /* glsl */`
 varying vec4 vColor;
 varying vec2 vCorner;
 void main() {
-  float edge = 1.0 - abs(vCorner.y);
-  float a = vColor.a * pow(edge, 1.3);
-  gl_FragColor = vec4(vColor.rgb * (0.65 + edge * 0.9), a);
+  float e = abs(vCorner.y);
+  vec3 col = e > 0.58 ? vec3(0.086, 0.075, 0.059) : vColor.rgb;
+  gl_FragColor = vec4(col, vColor.a);
 }`;
 
 export class RibbonPool {
@@ -78,7 +79,7 @@ export class RibbonPool {
     g.setDrawRange(0, 0);
     this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({
       vertexShader: RIBBON_VERT, fragmentShader: RIBBON_FRAG,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
     }));
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 6;
@@ -177,7 +178,9 @@ void main() {
   float d = length(p);
   if (d > 1.0) discard;
   float th = vParams.x;
-  float ring = smoothstep(1.0 - th - 0.04, 1.0 - th, d) * (1.0 - smoothstep(0.96, 1.0, d));
+  float ring = smoothstep(1.0 - th - 0.02, 1.0 - th, d) * (1.0 - smoothstep(0.98, 1.0, d));
+  // ink border on both edges of the band
+  float inkEdge = ring * (1.0 - smoothstep(0.0, 0.035, min(d - (1.0 - th), 1.0 - d)));
   float style = vParams.z;
   float ang = atan(p.y, p.x);
   float a = ring;
@@ -193,7 +196,8 @@ void main() {
     // dashed, rotating (gravity / warning)
     a = ring * step(0.0, sin(ang * 10.0 + uTime * 3.0 + vParams.w));
   }
-  gl_FragColor = vec4(vColor.rgb, vColor.a * a);
+  vec3 col = mix(vColor.rgb, vec3(0.086, 0.075, 0.059), clamp(inkEdge, 0.0, 1.0) * step(th, 0.95));
+  gl_FragColor = vec4(col, vColor.a * a);
 }`;
 
 export const RingStyle = Object.freeze({ PLAIN: 0, TELEGRAPH: 1, PORTAL: 2, DASHED: 3 });
@@ -212,7 +216,7 @@ export class RingPool {
     geo.setAttribute('aParams', this.paramAttr);
     this.material = new THREE.ShaderMaterial({
       vertexShader: RING_VERT, fragmentShader: RING_FRAG, uniforms: { uTime: { value: 0 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
     });
     this.mesh = new THREE.InstancedMesh(geo, this.material, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -327,12 +331,17 @@ varying vec3 vView;
 varying vec4 vColor;
 varying float vSeed;
 varying vec3 vLocal;
+// Comic vortex: translucent colour body with spiralling ink strokes and an inked rim.
 void main() {
-  float fres = pow(1.0 - abs(dot(normalize(vN), vView)), 2.2);
+  float fres = pow(1.0 - abs(dot(normalize(vN), vView)), 1.6);
   float ang = atan(vLocal.z, vLocal.x);
-  float swirl = 0.5 + 0.5 * sin(ang * 6.0 + vLocal.y * 8.0 - uTime * 5.0 * (vColor.a > 0.0 ? 1.0 : -1.0) + vSeed);
-  float a = abs(vColor.a) * (fres * 0.9 + swirl * 0.25 * fres + 0.05);
-  gl_FragColor = vec4(vColor.rgb * (0.8 + swirl * 0.6), a);
+  float spiral = fract((ang / 6.2831) * 3.0 + vLocal.y * 1.2 - uTime * 0.9 * (vColor.a > 0.0 ? 1.0 : -1.0) + vSeed);
+  float stroke = 1.0 - smoothstep(0.0, 0.08, abs(spiral - 0.5));
+  float rim = smoothstep(0.72, 0.85, fres);
+  vec3 ink = vec3(0.086, 0.075, 0.059);
+  vec3 col = mix(vColor.rgb, ink, max(stroke * 0.85, rim));
+  float a = abs(vColor.a) * (0.18 + fres * 0.35 + stroke * 0.5 + rim * 0.5);
+  gl_FragColor = vec4(col, a);
 }`;
 
 export class FractureFx {
@@ -346,7 +355,7 @@ export class FractureFx {
     geo.setAttribute('aSeed', this.seedAttr);
     this.material = new THREE.ShaderMaterial({
       vertexShader: FRACTURE_VERT, fragmentShader: FRACTURE_FRAG, uniforms: { uTime: { value: 0 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false,
     });
     this.mesh = new THREE.InstancedMesh(geo, this.material, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
