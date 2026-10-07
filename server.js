@@ -90,6 +90,11 @@ app.use('/sim', (req, res, next) => {
 }, express.static(path.join(ROOT, 'src/server'), staticOpts));
 // Three.js (installed via npm; only the build directory is exposed)
 app.use('/vendor/three', express.static(path.join(ROOT, 'node_modules/three/build'), staticOpts));
+// Self-hosted open-licence fonts (OFL-1.1): CSS + woff2 files only
+const FONT_FILES = /^\/(?:[\w.-]+\.css|files\/[\w.-]+\.woff2?)$/;
+const fontRoute = (dir) => [(req, res, next) => (FONT_FILES.test(req.path) ? next() : res.status(404).end()), express.static(path.join(ROOT, 'node_modules', dir), staticOpts)];
+app.use('/vendor/fonts/anton', ...fontRoute('@fontsource/anton'));
+app.use('/vendor/fonts/archivo', ...fontRoute('@fontsource-variable/archivo'));
 
 let gameServer = null;
 app.get('/healthz', (req, res) => {
