@@ -304,15 +304,19 @@ export class UI {
       const b = best[id];
       if (b) lines.push(`${arenaName(id)}: ${b.score.toLocaleString()} pts · wave ${b.wave}`);
     }
-    $('#best-score').textContent = lines.length ? `BEST RUNS\n${lines.join('\n')}` : 'No survival runs yet — enter the rift.';
+    $('#best-score').textContent = lines.length ? lines.join('\n') : 'No survival runs yet. Enter the rift!';
   }
 
   emitQuery(name) {
     return this.handlers[name] ? this.handlers[name]() : null;
   }
 
-  setNetStatus(text) {
-    $('#net-status').textContent = text;
+  /** @param {string} text @param {'online'|'offline'|''} [state] */
+  setNetStatus(text, state = '') {
+    const el = $('#net-status');
+    el.textContent = text;
+    el.classList.toggle('online', state === 'online');
+    el.classList.toggle('offline', state === 'offline');
   }
 
   setOnlineAvailable(ok, reason) {
@@ -397,6 +401,10 @@ export class UI {
     this.upgradeKey = key;
     const el = $('#upgrade');
     if (!ids) { el.hidden = true; return; }
+    // Clear call-outs so they don't sit behind the cards.
+    clearTimeout(this.centerTimer);
+    $('#center-msg').classList.remove('show');
+    $('#sub-msg').classList.remove('show');
     const root = $('#upgrade-cards');
     root.textContent = '';
     ids.forEach((id, i) => {
@@ -695,7 +703,7 @@ export class UI {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Animated menu background (2D canvas, paused while hidden)                 */
+/* Animated menu background: comic-cover sunburst (paused while hidden)      */
 /* ------------------------------------------------------------------------ */
 class MenuBackground {
   constructor(canvas) {
@@ -703,78 +711,130 @@ class MenuBackground {
     this.ctx = canvas.getContext('2d');
     this.visible = true;
     this.t = 0;
-    this.strokes = [];
-    for (let i = 0; i < 46; i++) this.strokes.push(this.newStroke(true));
     this.raf = 0;
+    this.halftone = document.createElement('canvas');
+    this.sparks = Array.from({ length: 14 }, () => this.newSpark(true));
     window.addEventListener('resize', () => this.resize());
     this.resize();
   }
 
+  /** Read palette tokens from CSS so canvas and DOM share one source of truth. */
+  readTokens() {
+    const cs = getComputedStyle(document.body);
+    const v = (n) => cs.getPropertyValue(n).trim();
+    this.col = { ink: v('--ink') || '#16130f', red: v('--signal') || '#e63b2e', deep: v('--signal-deep') || '#a3231a', paper: v('--paper') || '#efe6d2', yellow: v('--yellow') || '#f2c230' };
+  }
+
   resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = dpr;
     this.c.width = Math.floor(window.innerWidth * dpr);
     this.c.height = Math.floor(window.innerHeight * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.readTokens();
+    this.bakeHalftone();
   }
 
-  newStroke(init) {
-    const colors = ['#5ff6ff', '#ff4fd8', '#9b6bff', '#ffb347'];
+  /** Ben-Day dots that grow toward the edges, baked once per resize. */
+  bakeHalftone() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const hc = this.halftone;
+    hc.width = Math.floor(w * this.dpr);
+    hc.height = Math.floor(h * this.dpr);
+    const g = hc.getContext('2d');
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.fillStyle = this.col.ink;
+    const step = 13, fx = w * 0.32, fy = h * 0.24, maxD = Math.hypot(w, h) * 0.75;
+    for (let y = 0; y < h + step; y += step) {
+      for (let x = (y / step) % 2 ? step / 2 : 0; x < w + step; x += step) {
+        const d = Math.hypot(x - fx, y - fy) / maxD;
+        const r = Math.max(0, (d - 0.18) * 7.2);
+        if (r < 0.4) continue;
+        g.beginPath();
+        g.arc(x, y, Math.min(r, step * 0.62), 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+
+  newSpark(init) {
     return {
-      x: Math.random() * window.innerWidth, y: init ? Math.random() * window.innerHeight : window.innerHeight + 20,
-      len: 30 + Math.random() * 160, speed: 10 + Math.random() * 40, a: -Math.PI / 2 + (Math.random() - 0.5) * 0.6,
-      color: colors[Math.floor(Math.random() * colors.length)], w: 0.5 + Math.random() * 1.8, wob: Math.random() * 10,
+      x: Math.random() * window.innerWidth, y: init ? Math.random() * window.innerHeight : window.innerHeight + 30,
+      s: 6 + Math.random() * 14, v: 12 + Math.random() * 26, r: Math.random() * 6.28, spin: (Math.random() - 0.5) * 1.5, kind: Math.random() < 0.5 ? 0 : 1,
     };
   }
 
   setVisible(v) {
     this.visible = v;
     this.c.classList.toggle('hidden', !v);
+    if (v) { this.readTokens(); this.bakeHalftone(); }
     if (v && !this.raf) this.start();
   }
 
   start() {
     let last = performance.now();
+    let acc = 0;
     const loop = (now) => {
       if (!this.visible) { this.raf = 0; return; }
-      const dt = Math.min(0.05, (now - last) / 1000);
+      const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      this.draw(dt);
+      acc += dt;
+      if (acc >= 1 / 30) { this.draw(acc); acc = 0; } // 30 fps is plenty for a backdrop
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
   }
 
   draw(dt) {
-    const ctx = this.ctx;
+    const ctx = this.ctx, C = this.col;
     const w = window.innerWidth, h = window.innerHeight;
-    this.t += dt;
-    ctx.fillStyle = 'rgba(5,6,15,0.22)';
+    const reduce = document.body.classList.contains('reduced-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.t += reduce ? 0 : dt;
+    const fx = w * 0.32, fy = h * 0.24, R = Math.hypot(w, h);
+    ctx.fillStyle = C.deep;
     ctx.fillRect(0, 0, w, h);
-    // rotating quantum circles
-    const cx = w * 0.72, cy = h * 0.5;
-    for (let i = 0; i < 4; i++) {
+    // sunburst wedges
+    const n = 28, rot = this.t * 0.035;
+    ctx.fillStyle = C.red;
+    for (let i = 0; i < n; i += 2) {
+      const a0 = rot + (i / n) * Math.PI * 2, a1 = rot + ((i + 1) / n) * Math.PI * 2;
       ctx.beginPath();
-      ctx.strokeStyle = ['rgba(155,107,255,0.25)', 'rgba(255,79,216,0.18)', 'rgba(95,246,255,0.2)', 'rgba(255,179,71,0.12)'][i];
-      ctx.lineWidth = 1.2;
-      ctx.setLineDash(i % 2 ? [8, 10] : []);
-      ctx.arc(cx, cy, 90 + i * 70 + Math.sin(this.t * 0.7 + i) * 8, this.t * (0.2 + i * 0.1), this.t * (0.2 + i * 0.1) + Math.PI * 1.6);
-      ctx.stroke();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx + Math.cos(a0) * R, fy + Math.sin(a0) * R);
+      ctx.lineTo(fx + Math.cos(a1) * R, fy + Math.sin(a1) * R);
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.setLineDash([]);
-    // ink strokes drifting upward
-    for (let i = 0; i < this.strokes.length; i++) {
-      const s = this.strokes[i];
-      s.y -= s.speed * dt;
-      s.x += Math.sin(this.t + s.wob) * 6 * dt;
-      if (s.y + s.len < -20) this.strokes[i] = this.newStroke(false);
+    // halftone vignette
+    ctx.drawImage(this.halftone, 0, 0, w, h);
+    // drifting ink sparks (four-point stars and plus marks)
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = C.ink;
+    for (let i = 0; i < this.sparks.length; i++) {
+      const p = this.sparks[i];
+      p.y -= p.v * dt;
+      p.r += p.spin * dt;
+      if (p.y < -40) this.sparks[i] = this.newSpark(false);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.fillStyle = p.kind ? C.yellow : C.paper;
       ctx.beginPath();
-      ctx.strokeStyle = s.color;
-      ctx.globalAlpha = 0.35;
-      ctx.lineWidth = s.w;
-      ctx.moveTo(s.x, s.y);
-      ctx.quadraticCurveTo(s.x + Math.sin(this.t * 2 + s.wob) * 10, s.y + s.len / 2, s.x + Math.cos(s.a) * 4, s.y + s.len);
+      if (p.kind) {
+        for (let k = 0; k < 8; k++) {
+          const rr = k % 2 ? p.s * 0.32 : p.s;
+          const a = (k / 8) * Math.PI * 2;
+          k ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(rr, 0);
+        }
+        ctx.closePath();
+      } else {
+        const a = p.s * 0.22, b = p.s * 0.75;
+        ctx.rect(-a, -b, a * 2, b * 2);
+        ctx.rect(-b, -a, b * 2, a * 2);
+      }
+      ctx.fill();
       ctx.stroke();
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
   }
 }
