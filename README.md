@@ -98,12 +98,15 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 - Comic-book interface: a cover-style main menu, caption-box HUD, starburst call-outs and trading-card upgrades, in a print palette (paper, ink, red, blue, yellow) with an Okabe–Ito colour-blind variant
 - No image assets. Fonts (Anton, Archivo) are self-hosted from npm under the SIL Open Font License.
 - Pooled particles (fractured diamond shards), energy ribbons, rings and fracture distortion spheres
-- Post-processing: chromatic separation, vignette, paper grain, damage flash, low-health desaturation and the Phase Break overlay
+- Post-processing: colour-plate misregistration, ink vignette, paper grain, damage flash, low-health sepia and the Phase Break ripple
 - Procedural Web Audio for every weapon and event, plus adaptive music (menu / calm / combat / boss) and a low-health heartbeat
 
 **Interface and accessibility**
 - Full HUD: health, shield, Pulse meter, dynamic crosshair, ammo, ability cooldowns, timer, wave, score, combo, kill feed, objective, teammates, latency and FPS
 - Scoreboard, pause menu, post-match results and upgrade cards
+- Results ignore clicks for the first 350 ms so a held trigger cannot skip them; `Enter` or `Space` then plays again
+- A mute button in the top-right corner of every menu, pause and results screen (hidden only while the pointer is locked in play)
+- Reduced flashes default to on when the operating system requests reduced motion
 - Settings for sensitivity, invert Y, FOV, quality preset, particle budget, render scale, post-FX, chromatic aberration, screen shake, audio buses, key rebinding, colour-blind palette, reduced flashes, high-contrast HUD, HUD scale and crosshair size
 - Debug overlay: FPS, frame time, server tick time, ping, entity counts, draw calls, triangles, particles, prediction corrections and heap usage with a warning
 
