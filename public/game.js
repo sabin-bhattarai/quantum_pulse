@@ -145,7 +145,7 @@ class App {
   async checkServer() {
     if (!WebSocketTransport.supported()) {
       this.ui.setOnlineAvailable(false, 'WebSockets are not supported by this browser');
-      this.ui.setNetStatus('Online play unavailable: no WebSocket support.');
+      this.ui.setNetStatus('Online play unavailable: no WebSocket support.', 'offline');
       return;
     }
     try {
@@ -153,14 +153,14 @@ class App {
       const info = await res.json();
       if (info.protocol !== PROTOCOL_VERSION) {
         this.ui.setOnlineAvailable(false, 'Client and server versions differ — reload the page');
-        this.ui.setNetStatus('Server version mismatch — reload the page.');
+        this.ui.setNetStatus('Server version mismatch: reload the page.', 'offline');
         return;
       }
       this.ui.setOnlineAvailable(true);
-      this.ui.setNetStatus(`Server online · ${info.players} runner${info.players === 1 ? '' : 's'} in ${info.rooms} room${info.rooms === 1 ? '' : 's'}`);
+      this.ui.setNetStatus(`Online · ${info.players} runner${info.players === 1 ? '' : 's'} in ${info.rooms} room${info.rooms === 1 ? '' : 's'}`, 'online');
     } catch {
       this.ui.setOnlineAvailable(false, 'Game server unreachable');
-      this.ui.setNetStatus('Game server unreachable — offline modes still work.');
+      this.ui.setNetStatus('Server unreachable. Offline modes still work.', 'offline');
     }
   }
 
