@@ -72,6 +72,10 @@ function loadSettings() {
       if (Array.isArray(list)) s.bindings[a] = list.slice(0, 2).map((c) => (typeof c === 'string' && c.length < 32 ? c : null));
     }
   }
+  // First run: honour the OS reduced-motion preference (shake, bob, flashes).
+  if (typeof raw.reducedFlashes !== 'boolean' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    s.reducedFlashes = true;
+  }
   // Lower defaults automatically on small / low-power devices.
   if (!storageGet(SETTINGS_KEY) && (navigator.hardwareConcurrency || 8) <= 4) {
     s.quality = 'medium';
