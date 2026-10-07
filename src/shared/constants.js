@@ -9,7 +9,7 @@
  * @module shared/constants
  */
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Fixed-step simulation timing. */
 export const SIM = Object.freeze({

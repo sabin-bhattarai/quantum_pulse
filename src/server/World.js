@@ -1103,6 +1103,7 @@ export class World {
       rs: !p.alive ? quantize(p.respawnTimer, 1) : 0,
       rv: quantize(p.reviveProgress, 2),
       pr: p.protectedTimer > 0 ? 1 : 0,
+      nb: [p.bufferTarget, p.inputQueue.length], // server input jitter buffer: target, current depth (diagnostics)
       up: p.pendingUpgrades,
       cb: p.combo,
       st: {
