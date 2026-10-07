@@ -2,7 +2,9 @@
 
 > **Phase-shift arena combat in your browser.** Grapple through quantum rings, tear open gravity fractures, and break reality with a well-timed Phase Break. Drawn like a living comic book: every character, arena and effect is generated in code, and all audio is synthesised.
 
-![Main menu](docs/images/menu.jpg)
+**[▶ Play it live at quantum--pulse.vercel.app](https://quantum--pulse.vercel.app/)** (desktop browser, keyboard and mouse)
+
+![Main menu: comic-cover title, four mode cards, runner name, best runs and server status](docs/images/menu.jpg)
 
 Quantum Pulse is an original, fast-paced first-person arena shooter built with Three.js and Node.js. You play a **Pulse Runner**, fighting through unstable arenas that phase between versions of reality. You can survive escalating waves alone, fight up to 11 other runners in a server-authoritative free-for-all, or defend a quantum reactor with up to three friends.
 
