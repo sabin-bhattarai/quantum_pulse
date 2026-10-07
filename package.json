@@ -1,0 +1,23 @@
+{
+  "name": "quantum-pulse",
+  "version": "0.1.0",
+  "description": "Quantum Pulse — an original, fast browser arena shooter with solo survival, server-authoritative online FFA and co-op Rift Defense.",
+  "type": "module",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "check": "node scripts/check-syntax.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "three": "^0.186.1",
+    "ws": "^8.18.3"
+  },
+  "license": "MIT"
+}
