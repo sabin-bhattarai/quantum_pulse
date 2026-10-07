@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quantum Pulse</title>
+  <meta name="description" content="Quantum Pulse — an original high-speed browser arena shooter.">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="game-canvas" aria-label="Quantum Pulse game view"></canvas>
+  <canvas id="menu-bg" aria-hidden="true"></canvas>
+
+  <!-- ================= MAIN MENU ================= -->
+  <section id="screen-menu" class="screen active" aria-label="Main menu">
+    <div class="menu-layout">
+      <header class="logo" aria-label="Quantum Pulse">
+        <div class="logo-glyph" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h1 class="logo-text" data-text="QUANTUM PULSE">QUANTUM PULSE</h1>
+        <p class="logo-sub">phase-shift arena combat</p>
+      </header>
+      <nav class="menu-buttons">
+        <button class="btn primary" data-action="open-solo">Play Solo <small>Survival waves</small></button>
+        <button class="btn" data-action="open-online" id="btn-online">Online Multiplayer <small>Free-for-all · 2–12</small></button>
+        <button class="btn" data-action="open-coop" id="btn-coop">Co-op Rift Defense <small>Defend the reactor · 1–4</small></button>
+        <button class="btn" data-action="open-training">Training Range <small>Offline practice</small></button>
+        <div class="menu-row">
+          <button class="btn small" data-action="open-settings">Settings</button>
+          <button class="btn small" data-action="open-howto">How to Play</button>
+          <button class="btn small" data-action="open-credits">Credits</button>
+        </div>
+      </nav>
+      <aside class="menu-side">
+        <label class="field">
+          <span>Runner name</span>
+          <input id="input-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Pulse Runner">
+        </label>
+        <div class="best" id="best-score" aria-live="polite"></div>
+        <div class="net-status" id="net-status"></div>
+      </aside>
+    </div>
+    <footer class="menu-footer">An original game · v0.1.0 · <span id="build-info"></span></footer>
+  </section>
+
+  <!-- ================= MODE PANELS ================= -->
+  <section id="screen-solo" class="screen panel-screen" aria-label="Solo survival setup">
+    <div class="panel">
+      <h2>Solo Survival</h2>
+      <p class="muted">Survive escalating waves from the quantum rifts. Pick an upgrade between waves. A Singularity Titan emerges every fifth wave.</p>
+      <div class="arena-picker" data-for="solo"></div>
+      <div class="panel-actions">
+        <button class="btn" data-action="back">Back</button>
+        <button class="btn primary" data-action="start-solo">Enter the Rift</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-online" class="screen panel-screen" aria-label="Online free-for-all setup">
+    <div class="panel">
+      <h2>Online Free-for-All</h2>
+      <p class="muted">Server-authoritative deathmatch for 2–12 runners. Leave the room code empty for quick match, or share a code with friends.</p>
+      <label class="field"><span>Room code (optional)</span><input id="input-room-ffa" type="text" maxlength="8" placeholder="e.g. NEON42" autocomplete="off" spellcheck="false"></label>
+      <div class="arena-picker" data-for="ffa"></div>
+      <div class="panel-actions">
+        <button class="btn" data-action="back">Back</button>
+        <button class="btn primary" data-action="start-ffa">Connect</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-coop" class="screen panel-screen" aria-label="Co-op setup">
+    <div class="panel">
+      <h2>Co-op Rift Defense</h2>
+      <p class="muted">Up to four runners defend the reactor in <b>Reactor Null</b>. Stay tethered for bonuses, revive downed allies with <kbd>E</kbd>, and trigger Pulse together for a Rift Surge.</p>
+      <label class="field"><span>Room code (optional)</span><input id="input-room-coop" type="text" maxlength="8" placeholder="e.g. SQUAD7" autocomplete="off" spellcheck="false"></label>
+      <div class="panel-actions">
+        <button class="btn" data-action="back">Back</button>
+        <button class="btn primary" data-action="start-coop">Connect</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-training" class="screen panel-screen" aria-label="Training setup">
+    <div class="panel">
+      <h2>Training Range</h2>
+      <p class="muted">Offline sandbox with target dummies, every weapon, fast Pulse recharge and live movement telemetry. Press <kbd>E</kbd> to summon a practice swarm.</p>
+      <div class="arena-picker" data-for="training"></div>
+      <label class="check"><input type="checkbox" id="chk-tutorial" checked> Show movement tutorial</label>
+      <div class="panel-actions">
+        <button class="btn" data-action="back">Back</button>
+        <button class="btn primary" data-action="start-training">Start Training</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section id="screen-settings" class="screen panel-screen" aria-label="Settings">
+    <div class="panel wide">
+      <h2>Settings</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab active" role="tab" data-tab="gameplay">Gameplay</button>
+        <button class="tab" role="tab" data-tab="graphics">Graphics</button>
+        <button class="tab" role="tab" data-tab="audio">Audio</button>
+        <button class="tab" role="tab" data-tab="controls">Controls</button>
+        <button class="tab" role="tab" data-tab="access">Accessibility</button>
+      </div>
+      <div class="tab-body" data-tab-body="gameplay">
+        <label class="range"><span>Mouse sensitivity <output data-out="sensitivity"></output></span><input type="range" min="0.1" max="4" step="0.05" data-setting="sensitivity"></label>
+        <label class="range"><span>Field of view <output data-out="fov"></output></span><input type="range" min="70" max="120" step="1" data-setting="fov"></label>
+        <label class="check"><input type="checkbox" data-setting="invertY"> Invert mouse Y-axis</label>
+        <label class="check"><input type="checkbox" data-setting="showFps"> Show FPS counter</label>
+        <label class="check"><input type="checkbox" data-setting="debug"> Debug overlay (frame time, tick, draw calls)</label>
+      </div>
+      <div class="tab-body" data-tab-body="graphics" hidden>
+        <label class="select"><span>Quality preset</span>
+          <select data-setting="quality"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low (performance mode)</option></select>
+        </label>
+        <label class="select"><span>Particles</span>
+          <select data-setting="particles"><option value="high">High</option><option value="medium">Medium</option><option value="low">Reduced</option><option value="off">Off</option></select>
+        </label>
+        <label class="range"><span>Render scale <output data-out="renderScale"></output></span><input type="range" min="0.5" max="1" step="0.05" data-setting="renderScale"></label>
+        <label class="check"><input type="checkbox" data-setting="postFx"> Post-processing (grain, vignette, flashes)</label>
+        <label class="check"><input type="checkbox" data-setting="chromatic"> Chromatic aberration</label>
+        <label class="check"><input type="checkbox" data-setting="screenShake"> Screen shake</label>
+      </div>
+      <div class="tab-body" data-tab-body="audio" hidden>
+        <label class="range"><span>Master <output data-out="master"></output></span><input type="range" min="0" max="1" step="0.01" data-setting="master"></label>
+        <label class="range"><span>Music <output data-out="music"></output></span><input type="range" min="0" max="1" step="0.01" data-setting="music"></label>
+        <label class="range"><span>Effects <output data-out="sfx"></output></span><input type="range" min="0" max="1" step="0.01" data-setting="sfx"></label>
+        <label class="range"><span>Interface <output data-out="ui"></output></span><input type="range" min="0" max="1" step="0.01" data-setting="ui"></label>
+        <label class="check"><input type="checkbox" data-setting="mute"> Mute all audio</label>
+      </div>
+      <div class="tab-body" data-tab-body="controls" hidden>
+        <p class="muted">Click a binding, then press a key or mouse button. <kbd>Esc</kbd> cancels. Pause is always <kbd>Esc</kbd>.</p>
+        <div id="bindings" class="bindings"></div>
+        <button class="btn small" data-action="reset-bindings">Reset to defaults</button>
+      </div>
+      <div class="tab-body" data-tab-body="access" hidden>
+        <label class="check"><input type="checkbox" data-setting="colorblind"> Colour-blind friendly palette (blue / orange / yellow)</label>
+        <label class="check"><input type="checkbox" data-setting="reducedFlashes"> Reduce flashes and screen effects</label>
+        <label class="check"><input type="checkbox" data-setting="highContrastHud"> High-contrast HUD</label>
+        <label class="range"><span>HUD scale <output data-out="hudScale"></output></span><input type="range" min="0.75" max="1.4" step="0.05" data-setting="hudScale"></label>
+        <label class="range"><span>Crosshair size <output data-out="crosshairSize"></output></span><input type="range" min="0.6" max="2" step="0.05" data-setting="crosshairSize"></label>
+        <label class="check"><input type="checkbox" data-setting="holdToGrapple"> Grapple: release Q to detach (hold-style)</label>
+      </div>
+      <div class="panel-actions">
+        <button class="btn" data-action="reset-settings">Restore defaults</button>
+        <button class="btn primary" data-action="close-settings">Done</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-howto" class="screen panel-screen" aria-label="How to play">
+    <div class="panel wide scroll">
+      <h2>How to Play</h2>
+      <div class="howto-grid">
+        <div>
+          <h3>Movement</h3>
+          <ul class="keys">
+            <li><kbd>W A S D</kbd> move · <kbd>Mouse</kbd> look</li>
+            <li><kbd>Space</kbd> jump · jump again near a wall to <b>wall-jump</b></li>
+            <li><kbd>Shift</kbd> sprint · in the air: <b>air dash</b></li>
+            <li><kbd>C</kbd>/<kbd>Ctrl</kbd> slide · jump out of a slide to keep speed</li>
+            <li>Run along walls while holding <kbd>W</kbd> to <b>wall-run</b></li>
+            <li><kbd>Q</kbd> grapple: tap to attach (swing), hold to reel, <kbd>Space</kbd> to launch, <kbd>Q</kbd> again to release</li>
+          </ul>
+          <h3>Combat</h3>
+          <ul class="keys">
+            <li><kbd>LMB</kbd> fire · <kbd>RMB</kbd> focus / deflect (Phase Blades)</li>
+            <li><kbd>1</kbd>–<kbd>6</kbd> or wheel: weapons · <kbd>R</kbd> reload</li>
+            <li><kbd>F</kbd> melee pulse · <kbd>G</kbd> gravity well · <kbd>E</kbd> interact / revive</li>
+            <li><kbd>X</kbd> activate <b>Phase Break</b> at 100 Pulse Charge</li>
+            <li><kbd>Tab</kbd> scoreboard · <kbd>Esc</kbd> pause</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Quantum Pulse</h3>
+          <p>Build Pulse Charge with skill: damage, kills, airborne kills, headshots, near-miss dodges, flying through quantum rings, sustained speed and kill combos. At 100, press <kbd>X</kbd> for <b>Phase Break</b>: 3 seconds in a parallel layer where enemy projectiles pass through you, other damage is reduced, and violet phase barriers become passable.</p>
+          <h3>Gravity Fractures</h3>
+          <p>Fractures pull, push or orbit everything nearby — you, enemies, projectiles and pickups. Use them to fling enemies into the void for environmental kills.</p>
+          <h3>Momentum combat</h3>
+          <p>Speed raises your damage (capped at +30%), landing hard creates a shockwave, slides stagger light enemies, and grapple launches empower your next shots.</p>
+          <h3>Weapons</h3>
+          <div id="weapon-list" class="weapon-list"></div>
+        </div>
+      </div>
+      <div class="panel-actions"><button class="btn primary" data-action="back">Back</button></div>
+    </div>
+  </section>
+
+  <section id="screen-credits" class="screen panel-screen" aria-label="Credits">
+    <div class="panel">
+      <h2>Credits</h2>
+      <p>Quantum Pulse is an original open-source project. All art is procedurally generated and all audio is synthesised at runtime with the Web Audio API.</p>
+      <p>Built with <b>Three.js</b> (MIT), <b>Express</b> (MIT) and <b>ws</b> (MIT).</p>
+      <p class="muted">Not affiliated with, endorsed by, or derived from any other game.</p>
+      <div class="panel-actions"><button class="btn primary" data-action="back">Back</button></div>
+    </div>
+  </section>
+
+  <!-- ================= IN-GAME HUD ================= -->
+  <section id="hud" class="hud" hidden aria-label="Heads-up display">
+    <div class="hud-top">
+      <div class="hud-mode" id="hud-mode"></div>
+      <div class="hud-timer" id="hud-timer"></div>
+      <div class="hud-objective" id="hud-objective"></div>
+    </div>
+    <div class="hud-topright">
+      <div id="hud-net" class="hud-net"></div>
+      <div id="hud-fps" class="hud-fps" hidden></div>
+    </div>
+    <div class="killfeed" id="killfeed" aria-live="polite"></div>
+    <div class="team-status" id="team-status"></div>
+
+    <div class="crosshair" id="crosshair" aria-hidden="true">
+      <span class="ch-l"></span><span class="ch-r"></span><span class="ch-t"></span><span class="ch-b"></span><span class="ch-dot"></span>
+      <div class="hitmarker" id="hitmarker"></div>
+      <div class="charge-ring" id="charge-ring"></div>
+    </div>
+    <div class="damage-indicators" id="damage-indicators" aria-hidden="true"></div>
+
+    <div class="center-msg" id="center-msg" aria-live="assertive"></div>
+    <div class="sub-msg" id="sub-msg"></div>
+    <div class="prompt" id="prompt"></div>
+
+    <div class="hud-bottomleft">
+      <div class="vitals">
+        <div class="bar shield"><div class="fill" id="bar-shield"></div><span id="txt-shield"></span></div>
+        <div class="bar health"><div class="fill" id="bar-health"></div><span id="txt-health"></span></div>
+      </div>
+      <div class="abilities" id="abilities">
+        <div class="ability" data-ab="grapple"><kbd data-bind="grapple">Q</kbd><i></i><span>Grapple</span></div>
+        <div class="ability" data-ab="melee"><kbd data-bind="melee">F</kbd><i></i><span>Melee</span></div>
+        <div class="ability" data-ab="gravity"><kbd data-bind="gravity">G</kbd><i></i><span>Gravity</span></div>
+        <div class="ability" data-ab="dash"><kbd data-bind="sprint">⇧</kbd><i></i><span>Dash</span></div>
+      </div>
+    </div>
+
+    <div class="hud-bottomcenter">
+      <div class="pulse-meter" id="pulse-meter">
+        <div class="pulse-fill" id="pulse-fill"></div>
+        <div class="pulse-label"><span id="pulse-value">0</span><small>PULSE</small></div>
+        <div class="pulse-ready" id="pulse-ready">PRESS <kbd data-bind="pulse">X</kbd> · PHASE BREAK</div>
+      </div>
+      <div class="move-state" id="move-state"></div>
+    </div>
+
+    <div class="hud-bottomright">
+      <div class="combo" id="combo"></div>
+      <div class="score" id="hud-score"></div>
+      <div class="weapon">
+        <div class="weapon-name" id="weapon-name"></div>
+        <div class="ammo"><span id="ammo-cur"></span><small id="ammo-max"></small></div>
+        <div class="reload" id="reload-bar"><div></div></div>
+        <div class="weapon-slots" id="weapon-slots"></div>
+      </div>
+    </div>
+
+    <div class="training-panel" id="training-panel" hidden></div>
+    <div class="tutorial" id="tutorial" hidden></div>
+    <div class="debug-overlay" id="debug-overlay" hidden></div>
+  </section>
+
+  <div class="vignette-overlay" id="phase-overlay" aria-hidden="true"></div>
+
+  <!-- ================= OVERLAYS ================= -->
+  <section id="scoreboard" class="overlay" hidden aria-label="Scoreboard">
+    <div class="panel wide">
+      <h2 id="sb-title">Scoreboard</h2>
+      <table class="sb-table"><thead><tr><th>#</th><th>Runner</th><th>K</th><th>D</th><th>A</th><th>Score</th><th>Streak</th><th>Ping</th></tr></thead><tbody id="sb-body"></tbody></table>
+    </div>
+  </section>
+
+  <section id="upgrade" class="overlay" hidden aria-label="Choose an upgrade">
+    <div class="upgrade-wrap">
+      <h2>Choose an upgrade</h2>
+      <p class="muted">Click a card or press <kbd>1</kbd>–<kbd>3</kbd>.</p>
+      <div class="upgrade-cards" id="upgrade-cards"></div>
+    </div>
+  </section>
+
+  <section id="downed" class="overlay transparent" hidden aria-live="assertive">
+    <div class="downed-box"><h2 id="downed-title">DOWNED</h2><p id="downed-text"></p></div>
+  </section>
+
+  <section id="pause" class="overlay" hidden aria-label="Paused">
+    <div class="panel">
+      <h2>Paused</h2>
+      <p class="muted" id="pause-note"></p>
+      <div class="menu-buttons">
+        <button class="btn primary" data-action="resume">Resume</button>
+        <button class="btn" data-action="open-settings">Settings</button>
+        <button class="btn" data-action="leave">Leave match</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" class="overlay" hidden aria-label="Results">
+    <div class="panel wide">
+      <h2 id="results-title">Results</h2>
+      <div id="results-summary" class="results-summary"></div>
+      <table class="sb-table"><thead><tr><th>#</th><th>Runner</th><th>K</th><th>D</th><th>A</th><th>Score</th></tr></thead><tbody id="results-body"></tbody></table>
+      <div class="panel-actions">
+        <button class="btn" data-action="leave">Main menu</button>
+        <button class="btn primary" data-action="play-again" id="btn-play-again">Play again</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="loading" class="overlay" hidden aria-live="polite">
+    <div class="loading-box"><div class="spinner"></div><p id="loading-text">Connecting…</p></div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <noscript><div class="fatal">Quantum Pulse requires JavaScript.</div></noscript>
+  <div id="fatal" class="fatal" hidden></div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
