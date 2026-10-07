@@ -13,6 +13,8 @@ import { DEFAULT_BINDINGS, ACTION_LABELS, codeLabel } from '/input.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+/** Results ignore clicks this long after opening so a held trigger cannot skip them. */
+const RESULTS_INPUT_GUARD_MS = 350;
 
 const ARENA_TAGLINES = {
   neon_rupture: 'Floating city fragments over the void',
@@ -34,6 +36,7 @@ export class UI {
     this.settings = settings;
     this.input = input;
     this.handlers = {};
+    this.resultsShownAt = 0;
     this.cache = new Map();
     this.screenStack = ['menu'];
     this.arenaChoice = { solo: settings.arena || 'neon_rupture', ffa: null, training: 'neon_rupture' };
@@ -61,6 +64,8 @@ export class UI {
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
+      // Swallow clicks still in flight from the fight that just ended.
+      if (btn.closest('#results') && performance.now() - this.resultsShownAt < RESULTS_INPUT_GUARD_MS) return;
       const a = btn.dataset.action;
       this.emit('click');
       switch (a) {
@@ -502,6 +507,9 @@ export class UI {
     });
     $('#btn-play-again').hidden = !extra.canReplay;
     $('#results').hidden = false;
+    this.resultsShownAt = performance.now();
+    // Enter / Space restarts (or returns to the menu online) without the mouse.
+    (extra.canReplay ? $('#btn-play-again') : $('#results [data-action="leave"]')).focus({ preventScroll: true });
   }
 
   hideResults() {
