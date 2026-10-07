@@ -47,18 +47,31 @@ function gaussian(rng) {
  * @param {{rtt:number, jitter:number, loss:number}} cond live conditions (may be changed at runtime)
  */
 export function createDelayLine(cond, deliver, rng = Math.random) {
+  // One FIFO drained by a single timer. (Scheduling a separate setTimeout per
+  // message can reorder messages, because timer delays are truncated to whole
+  // milliseconds — and TCP never reorders.)
+  const queue = [];
   let lastRelease = 0;
-  let pending = 0;
+  let timer = null;
+  const drain = () => {
+    timer = null;
+    const now = performance.now();
+    while (queue.length && queue[0].release <= now + 0.5) {
+      const m = queue.shift();
+      deliver(m.data, m.isBinary);
+    }
+    if (queue.length) timer = setTimeout(drain, Math.max(0, queue[0].release - now));
+  };
   return {
-    get pending() { return pending; },
+    get pending() { return queue.length; },
     push(data, isBinary) {
       const now = performance.now();
       const oneWay = cond.rtt / 2 + Math.abs(gaussian(rng)) * (cond.jitter / 2);
       const penalty = rng() < cond.loss ? Math.max(200, cond.rtt) : 0;
       const release = Math.max(lastRelease, now + oneWay + penalty);
       lastRelease = release;
-      pending++;
-      setTimeout(() => { pending--; deliver(data, isBinary); }, Math.max(0, release - now));
+      queue.push({ data, isBinary, release });
+      if (!timer) timer = setTimeout(drain, Math.max(0, queue[0].release - now));
     },
   };
 }
