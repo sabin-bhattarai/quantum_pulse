@@ -222,3 +222,28 @@ test('prediction + reconciliation converges to the authoritative state', () => {
   assert.ok(Math.hypot(pred.state.x - truth.x, pred.state.y - truth.y, pred.state.z - truth.z) < 1e-3);
   assert.ok(pred.corrections >= 1, 'the unpredicted knockback produced a correction');
 });
+
+test('a wall jump wins over a long jump pressed on the same tick', () => {
+  const env = testEnv();
+  // airborne right beside the wall at x = 10, facing it
+  const s = createMoveState(9.55, 3, 0, -Math.PI / 2);
+  s.onGround = 0; s.airTime = 1; s.vx = 4;
+  run(s, env, 2, inp({ mz: 1, yaw: -Math.PI / 2 })); // touch the wall
+  assert.ok(s.wallTimer < 0.15, 'touching the wall');
+  const charges = s.dashCharges;
+  const ev = stepMovement(s, inp({ mz: 1, yaw: -Math.PI / 2, buttons: BTN.JUMP_P | BTN.DASH_P }), env, DT);
+  assert.ok(ev & MoveEvent.WALLJUMP, 'wall jump happens');
+  assert.ok(!(ev & MoveEvent.DASH), 'no dash on the same tick');
+  assert.ok(s.dashCharges >= charges, 'the long-jump charge is not spent');
+});
+
+test('long jump (air dash) bursts forward when no wall jump is possible', () => {
+  const env = testEnv();
+  const s = createMoveState(0, 0, 0, 0);
+  run(s, env, 10, inp());
+  stepMovement(s, inp({ buttons: BTN.JUMP_P }), env, DT);
+  run(s, env, 6, inp());
+  const ev = stepMovement(s, inp({ buttons: BTN.JUMP_P | BTN.DASH_P }), env, DT);
+  assert.ok(ev & MoveEvent.DASH);
+  assert.ok(-s.vz >= PLAYER.DASH_SPEED * 0.99, 'forward (-Z) burst at dash speed');
+});

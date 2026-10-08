@@ -442,7 +442,9 @@ export function stepMovement(s, inp, env, dt) {
   }
 
   // ---- air dash ------------------------------------------------------------
-  if ((b & BTN.DASH_P) && !s.onGround && !stunned && s.dashCharges > 0 && s.dashCooldown <= 0 && !s.grappling) {
+  // (also the double-tap "long jump"; a wall jump or grapple launch on the same tick takes priority)
+  if ((b & BTN.DASH_P) && !s.onGround && !stunned && s.dashCharges > 0 && s.dashCooldown <= 0 && !s.grappling &&
+      !(s.events & (MoveEvent.WALLJUMP | MoveEvent.GRAPPLE_LAUNCH))) {
     let dxd = wx, dzd = wz;
     if (!hasWish) { dxd = -sinY; dzd = -cosY; }
     const dl = Math.hypot(dxd, dzd) || 1;
