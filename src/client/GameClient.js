@@ -1005,7 +1005,7 @@ export class GameClient {
     const rtt = Math.round(this.transport.rtt || 0);
     const score = this.mode === MODES.FFA ? `${me.st.k} K · ${me.st.d} D · ${me.st.s} pts` : this.mode === MODES.TRAINING ? `${me.st.dmg} dmg dealt` : `${(m.sc ?? me.st.s).toLocaleString()} pts`;
     this.ui.updateHud({
-      modeLabel: `${MODE_LABELS[this.mode]} · ${arenaName(this.arena.id)}`,
+      modeLabel: `${MODE_LABELS[this.mode]} · ${arenaName(this.arena.id)}${this.isLocal || !this.welcome.room ? '' : ` · Room ${this.welcome.room}`}`,
       timer,
       objective,
       reactor: this.mode === MODES.COOP && this.lastSnapshot ? this.lastSnapshot.rc : undefined,
