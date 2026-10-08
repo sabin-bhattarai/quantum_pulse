@@ -71,7 +71,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 | 5 | Phase Blades | Melee slash. Swinging on the beat deals 1.6× damage, and alt-fire deflects projectiles. |
 | 6 | Echo Repeater | Each shot repeats along the same trajectory 0.6 s later, with a visible marker |
 
-**Seven enemy archetypes plus training dummies.** Each runs on a finite-state machine (Idle, Patrol, Search, Chase, Attack, Evade, Support, Stunned, Retreat, Dead).
+**Eight enemy archetypes plus training dummies.** Each runs on a finite-state machine (Idle, Patrol, Search, Chase, Attack, Evade, Support, Stunned, Retreat, Dead).
 
 | Enemy | Behaviour | Counterplay |
 |---|---|---|
@@ -81,6 +81,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 | Rift Caster | Support: shields allies, opens portals that spawn swarm drones, and fires projectile rings or fans | Close the distance and focus it first |
 | Shard Runner | Locks a direction, charges and leaves damaging trails | Interrupt the wind-up with 25+ damage, or sidestep the red line |
 | Mirror Drone | Replays its target's motion 0.75 s late and aims where you *were* | Change direction abruptly |
+| Rogue Runner | Solo opponent: a bot runner with the multiplayer avatar, driven by the same movement model as players. Patrols its own part of the arena, spots you inside its view cone, holds 10–22 m, strafes, hops and fires short bursts of visible bolts. Only 2–4 may shoot at once, and it never walks off a ledge by itself. | Flank it (its aim turns smoothly), dodge the bolts, aim for the head |
 | Singularity Titan | Boss every 5th wave with 3 phases: orb barrage, gravity slam, sweeping beam (jump over it), summons and an arena pulse. Its core weak point opens on phase changes. | Read the telegraphs and shoot the core |
 
 **World**
@@ -170,7 +171,7 @@ The stick snaps to eight directions because the input protocol carries whole ste
 ## Game modes
 
 ### Solo Survival (offline)
-Waves spawn from quantum rifts and introduce new archetypes over time. Every fifth wave is a Titan boss, and elites appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks), and a Titan kill grants a bonus pick. From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
+You fight **Rogue Runners**: bot runners with the same avatar as multiplayer, each coming out of its own rift at a different spawn point at least 18 m away, so a wave is spread across the arena rather than piled on you. They patrol until they see you (or you shoot them), and a runner left alone too long starts hunting you so a wave never stalls. Waves stay small (3, 4, 4, 5 runners, capped at 8 per wave and 6 alive at once). Every fifth wave the Singularity Titan arrives with a runner escort, at 60% of its co-op health, and elites appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks), and a Titan kill grants a bonus pick. From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
 
 ### Online Free-for-All (2–12 players)
 A warm-up lasts until a second runner joins, then a 10 s countdown starts the timed match (5 minutes by default). Kills, deaths, assists, score and streaks are all tracked server-side, with streak call-outs at 3, 5, 8 and 12. You respawn after 3 s with 2 s of spawn protection, which ends early if you attack. Environmental deaths credit the last attacker. The match ends with a results screen, and the next match starts automatically. Use a **room code** to play privately with friends.
