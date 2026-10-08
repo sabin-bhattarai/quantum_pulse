@@ -73,6 +73,7 @@ export class WebSocketTransport {
         ws.send(JSON.stringify({
           t: MSG.HELLO, v: PROTOCOL_VERSION, name: this.opts.name, mode: this.opts.mode,
           room: this.opts.room || '', token: this.token || undefined, arena: this.opts.arena || undefined,
+          action: this.opts.action || undefined,
         }));
       };
       ws.onmessage = (ev) => {
@@ -80,6 +81,8 @@ export class WebSocketTransport {
         try { msg = JSON.parse(ev.data); } catch { return; }
         if (msg.t === MSG.WELCOME) {
           this.token = msg.token;
+          // Reconnects go back to the room we were given (created or quick-matched).
+          if (msg.room) { this.opts.room = msg.room; this.opts.action = 'join'; }
           this.connected = true;
           this.attempts = 0;
           try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token: msg.token, mode: this.opts.mode, room: this.opts.room || '' })); } catch { /* ignore */ }
