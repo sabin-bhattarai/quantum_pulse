@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../src/server/Room.js';
-import { MODES, SIM, ROGUE } from '../src/shared/constants.js';
+import { MODES, SIM, ROGUE, PLAYER } from '../src/shared/constants.js';
 import { EnemyType, ENEMY_DEFS } from '../src/server/Enemy.js';
 
 const sink = () => ({ send() {}, snapshot() {} });
@@ -82,6 +82,6 @@ test('a Rogue Runner head is its weak point, at head height above the feet', () 
   const e = world.enemies.spawn(EnemyType.ROGUE, 0, 0, 20, {});
   const wp = {};
   assert.ok(e.weakPoint(e.x, e.y, e.z, wp));
-  assert.ok(Math.abs(wp.y - e.move.y - 1.73) < 0.01);
+  assert.ok(Math.abs(wp.y - e.move.y - PLAYER.HEAD_CENTER) < 0.01);
   assert.ok(e.name.length > 0, 'runners carry a callsign for the kill feed');
 });
