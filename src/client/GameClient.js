@@ -21,6 +21,12 @@ import { Prediction } from './Prediction.js';
 import { SnapshotBuffer, ServerClock, interpolateCategory } from './Interpolation.js';
 
 const BASE_SENSITIVITY = 0.0022; // radians per pixel at sensitivity 1.0
+
+/** FOV in degrees after zooming: scales tan(FOV/2), which is true optical magnification. */
+function zoomFov(fovDeg, zoom) {
+  if (zoom >= 0.999) return fovDeg;
+  return (2 * Math.atan(Math.tan((fovDeg * Math.PI) / 360) * zoom) * 180) / Math.PI;
+}
 const MODE_LABELS = { survival: 'Solo Survival', ffa: 'Free-for-All', coop: 'Rift Defense', training: 'Training Range' };
 
 const TUTORIAL = [
@@ -96,7 +102,8 @@ export class GameClient {
     // cosmetic weapon state
     this.cw = { cooldown: 0, charge: 0, charging: false, lastSwing: -10, switchAnim: 0, recoil: 0, muzzle: 0, swing: 0, prevFire: false };
     this.pendingShots = [];
-    this.vm = { weapon: 0, bob: 0, bobAmp: 0, sway: { x: 0, y: 0 }, recoil: 0, reload: 0, switch: 0, swing: 0, charge: 0, visible: true, muzzle: 0, muzzleColor: null };
+    this.vm = { weapon: 0, bob: 0, bobAmp: 0, sway: { x: 0, y: 0 }, recoil: 0, reload: 0, switch: 0, swing: 0, charge: 0, visible: true, muzzle: 0, muzzleColor: null, ads: 0 };
+    this.zoom = 1; // current aim-down-sights scale of tan(FOV/2); 1 = hip fire
 
     // feedback state
     this.post = { damage: 0, phase: 0, lowHealth: 0, pulse: 0, flash: 0, reactor: 1, speed: 0 };
@@ -778,7 +785,8 @@ export class GameClient {
     const look = this.input.consumeLook();
     const wheel = this.input.consumeWheel();
     if (this.acceptingInput) {
-      const sens = BASE_SENSITIVITY * this.settings.sensitivity * (this.settings.fov / 95);
+      // zoomed in: turn slower in proportion, so the target stays under the same hand movement
+      const sens = BASE_SENSITIVITY * this.settings.sensitivity * (this.settings.fov / 95) * this.zoom;
       this.yaw -= look.x * sens;
       this.pitch -= look.y * sens * (this.settings.invertY ? -1 : 1);
       this.pitch = clamp(this.pitch, -1.5, 1.5);
@@ -829,7 +837,15 @@ export class GameClient {
     this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, dt * 14);
     const hs = Math.hypot(m.vx, m.vz);
     const grounded = m.onGround && !m.slideTimer;
-    const bobAmp = this.settings.reducedFlashes ? 0 : grounded ? clamp(hs / 13, 0, 1) : 0;
+    // ---- zoom: hold Aim (right mouse / touch Aim) to look down the sights ----
+    const zdef = WEAPONS[this.weapon];
+    const meNow = this.me;
+    const wantZoom = zdef.zoom < 1 && this.acceptingInput && this.input.isHeld('alt') && !!(meNow && meNow.al && !(meNow.dn > 0) && !(meNow.rl >= 0));
+    this.zoom += ((wantZoom ? zdef.zoom : 1) - this.zoom) * Math.min(1, dt * 14);
+    const ads = zdef.zoom < 1 ? clamp((1 - this.zoom) / (1 - zdef.zoom), 0, 1) : 0;
+    const scoped = zdef.zoom < 0.5 && ads > 0.85;
+    this.ui.setScope(scoped);
+    const bobAmp = (this.settings.reducedFlashes ? 0 : grounded ? clamp(hs / 13, 0, 1) : 0) * (1 - ads);
     this.vm.bob += dt * hs * 0.9;
     const bob = Math.sin(this.vm.bob * 2) * 0.035 * bobAmp;
 
@@ -838,7 +854,7 @@ export class GameClient {
     const roll = m.state === MoveState.WALLRUN ? 0.08 * Math.sign(m.wallNx * Math.cos(this.yaw) - m.wallNz * Math.sin(this.yaw)) : 0;
     const dc = this.debugCamera; // optional fixed camera for automated screenshots (debug builds only)
     if (dc) R.setCamera(dc.x, dc.y, dc.z, dc.yaw, dc.pitch, this.settings.fov);
-    else R.setCamera(pos.x, pos.y + this.eyeHeight + bob, pos.z, this.yaw, this.pitch, this.settings.fov + fovKick);
+    else R.setCamera(pos.x, pos.y + this.eyeHeight + bob, pos.z, this.yaw, this.pitch, zoomFov(this.settings.fov + fovKick, this.zoom));
     R.camera.rotation.z += dc ? 0 : roll;
 
     // ---- world entities ----
@@ -884,7 +900,8 @@ export class GameClient {
     vm.swing = Math.sin(cw.swing * Math.PI);
     vm.charge = cw.charge;
     vm.muzzle = cw.muzzle;
-    vm.visible = !!(me && me.al && !(me.dn > 0));
+    vm.ads = ads;
+    vm.visible = !!(me && me.al && !(me.dn > 0)) && !scoped;
     R.drawViewmodel(vm);
 
     // ---- post-processing state ----
