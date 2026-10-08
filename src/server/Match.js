@@ -6,7 +6,7 @@
  * simulation.
  * @module server/Match
  */
-import { MODES, MATCH, SURVIVAL, SCORE, SIM, BTN, PULSE } from '../shared/constants.js';
+import { MODES, MATCH, SURVIVAL, SCORE, SIM, BTN, PULSE, ROGUE } from '../shared/constants.js';
 import { raycastArena } from '../shared/movement.js';
 import { FractureMode } from '../shared/gravity.js';
 import { EV } from '../shared/protocol.js';
@@ -139,9 +139,18 @@ class BaseRules {
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0 || !this.spawnQueue.length) return;
     if (w.enemies.count >= SURVIVAL.MAX_ALIVE_ENEMIES) return;
+    if (!this.canSpawn(this.spawnQueue[0])) return;
     const entry = this.spawnQueue.shift();
-    this.spawnAtRift(entry.type, entry.count, { hpScale: w.difficulty.hp, damageScale: w.difficulty.damage, elite: entry.elite });
+    this.spawnEntry(entry, { hpScale: w.difficulty.hp, damageScale: w.difficulty.damage, elite: entry.elite });
     this.spawnTimer = entry.type === EnemyType.TITAN ? 3 : SURVIVAL.SPAWN_INTERVAL;
+  }
+
+  /** Hook: hold an entry back (e.g. too many of its kind alive). */
+  canSpawn() { return true; }
+
+  /** Hook: place one queued entry in the arena. */
+  spawnEntry(entry, opts) {
+    this.spawnAtRift(entry.type, entry.count, opts);
   }
 
   /** Arena instability: telegraphed random fractures that ramp up with waves. */
@@ -177,7 +186,69 @@ class BaseRules {
 /* ------------------------------------------------------------------------ */
 /* Solo Survival                                                             */
 /* ------------------------------------------------------------------------ */
+/**
+ * Solo waves are fought against Rogue Runners: bots that use the player
+ * movement model and the multiplayer avatar. Each one comes out of its own
+ * rift at a different spawn point, away from the player, so a wave is spread
+ * across the arena. The Singularity Titan still leads every fifth wave.
+ */
 class SurvivalRules extends BaseRules {
+  composeWave(n) {
+    const isBoss = n % SURVIVAL.BOSS_EVERY === 0;
+    const isElite = n % SURVIVAL.ELITE_WAVES_MOD === SURVIVAL.ELITE_WAVE_OFFSET;
+    // 3, 4, 4, 5 | boss + 2 | 6, 6, 7, 7 | boss + 3 | ... capped at MAX_PER_WAVE
+    const runners = isBoss ? 2 + Math.floor(n / 10) : Math.min(ROGUE.MAX_PER_WAVE, 2 + Math.ceil(n * 0.55));
+    const queue = [];
+    if (isBoss) queue.push({ type: EnemyType.TITAN, count: 1, elite: false });
+    let elites = isElite ? 1 + Math.floor(n / 10) : 0;
+    for (let i = 0; i < runners; i++) {
+      queue.push({ type: EnemyType.ROGUE, count: 1, elite: elites > 0 });
+      elites--;
+    }
+    return { queue, isBoss, isElite };
+  }
+
+  difficultyFor(n) {
+    return {
+      hp: 1 + 0.06 * (n - 1),
+      damage: 1 + 0.04 * (n - 1),
+      speed: 1,
+      shooters: n < 4 ? 2 : n < 8 ? 3 : 4, // Rogue Runners allowed to fire at once
+    };
+  }
+
+  canSpawn(entry) {
+    return entry.type !== EnemyType.ROGUE || this.world.enemies.countType(EnemyType.ROGUE) < ROGUE.MAX_ALIVE;
+  }
+
+  spawnEntry(entry, opts) {
+    if (entry.type === EnemyType.ROGUE) { this.spawnRogue(opts); return; }
+    if (entry.type === EnemyType.TITAN) opts = { ...opts, hpScale: opts.hpScale * ROGUE.SOLO_TITAN_HP };
+    this.spawnAtRift(entry.type, entry.count, opts);
+  }
+
+  /**
+   * One Rogue Runner at the spawn point that best spreads the wave out: at
+   * least SPAWN_MIN_DIST from every player, as far as possible from the other
+   * runners' home points, with a little randomness.
+   */
+  spawnRogue(opts) {
+    const w = this.world;
+    const homes = w.enemies.active.filter((e) => e.move);
+    let best = null, bestScore = -Infinity;
+    for (const s of w.arena.spawns) {
+      let dp = Infinity;
+      for (const p of w.activePlayers) if (p.alive) dp = Math.min(dp, Math.hypot(p.x - s.x, p.z - s.z));
+      let dr = 40;
+      for (const e of homes) dr = Math.min(dr, Math.hypot(e.homeX - s.x, e.homeZ - s.z));
+      const score = (dp < ROGUE.SPAWN_MIN_DIST ? -1000 + dp : 0) + dr + w.rng() * 6;
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+    if (!best) return;
+    w.emit(EV.RIFT, best.x, best.y + 1, best.z);
+    w.enemies.spawn(EnemyType.ROGUE, best.x, best.y, best.z, { ...opts, yaw: Math.atan2(best.x, best.z) });
+  }
+
   start() {
     this.phase = 'countdown';
     this.timer = 3;
