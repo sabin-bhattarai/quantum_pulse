@@ -268,7 +268,7 @@ class App {
     const name = (this.settings.name || '').trim() || 'Pulse Runner';
     const online = opts.mode === MODES.FFA || opts.mode === MODES.COOP;
     const transport = online
-      ? new WebSocketTransport({ name, mode: opts.mode, room: opts.room || '', arena: opts.arena || null })
+      ? new WebSocketTransport({ name, mode: opts.mode, room: opts.room || '', arena: opts.arena || null, action: opts.action || 'quick' })
       : new LocalTransport({ name, mode: opts.mode, arena: opts.arena || 'neon_rupture' });
     this.ui.loading(online ? 'Connecting to the rift…' : 'Folding reality…');
     try {
@@ -282,6 +282,7 @@ class App {
           getBest: (a) => this.getBest(a),
         },
       });
+      if (online && opts.action === 'create') this.ui.toast(`Room ${welcome.room} created. Share the code with your friends.`, false, 8000);
       this.ui.loading(null);
       this.input.requestLock();
       if (!this.input.locked) this.ui.showPause('Click Resume (or the game view) to capture the mouse.');
@@ -300,7 +301,7 @@ class App {
     if (!this.client) return;
     this.client.setPaused(true);
     this.client.showScoreboard(false);
-    this.ui.showPause(this.client.isLocal ? 'The simulation is paused.' : 'Online matches keep running while paused.');
+    this.ui.showPause(this.client.isLocal ? 'The simulation is paused.' : `Room ${this.client.welcome.room} · online matches keep running while paused.`);
   }
 
   resume() {

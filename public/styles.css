@@ -512,6 +512,33 @@ body.locked .mute-toggle { display: none; }
 .fatal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 30px; text-align: center; background: var(--paper); color: var(--ink); font-size: 1.1rem; font-weight: 700; line-height: 1.6; }
 .fatal code { padding: 1px 6px; background: var(--ink); color: var(--paper); }
 
+/* Online lobby (free-for-all room list) and co-op host/join choices */
+.btn.tiny { display: inline-flex; flex-direction: row; align-items: center; padding: 6px 12px 5px; font-size: 0.95rem; box-shadow: 2px 2px 0 var(--ink); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.room-list-head { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.room-list-head .label, .label-line { font-weight: 800; font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; }
+.label-line { margin: 18px 0 0; }
+.room-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 260px; overflow: auto; }
+.room-row {
+  display: grid; grid-template-columns: 90px 1fr 60px 1fr auto; align-items: center; gap: 12px; padding: 8px 10px 8px 14px;
+  background: #fff8e6; border: var(--stroke) solid var(--ink); box-shadow: 3px 3px 0 var(--ink); font-weight: 700;
+}
+.room-row .code { font-family: var(--display); font-weight: 400; font-size: 1.3rem; letter-spacing: 0.08em; }
+.room-row .count { font-variant-numeric: tabular-nums; text-align: center; }
+.room-row .phase { color: var(--ink-soft); font-size: 0.85rem; }
+.room-row.full { opacity: 0.6; }
+.room-empty { margin: 4px 0; padding: 14px; border: 3px dashed var(--ink-soft); color: var(--ink-soft); font-weight: 700; text-align: center; }
+.code-join { display: flex; align-items: flex-end; gap: 12px; }
+.code-join .field { flex: 1; margin-bottom: 0; }
+.coop-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+.coop-choices .caption { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.coop-choices .field { width: 100%; margin: 0; }
+@media (max-width: 640px) {
+  .coop-choices { grid-template-columns: 1fr; }
+  .room-row { grid-template-columns: 70px 1fr 50px auto; }
+  .room-row .phase { display: none; }
+}
+
 .howto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
 .keys { padding-left: 0; line-height: 2; list-style: none; font-weight: 600; }
 .weapon-list { display: grid; gap: 7px; }
