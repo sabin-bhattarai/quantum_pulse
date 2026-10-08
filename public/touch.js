@@ -12,7 +12,8 @@
  *
  * Each finger is tracked by pointerId so moving, looking and firing work at the
  * same time. The stick snaps to 8 directions because the input protocol carries
- * whole steps (-1, 0, 1); full tilt forward sprints.
+ * whole steps (-1, 0, 1); full tilt forward sprints. Sideways deflection also
+ * turns the view continuously (setting "stickTurn"), like steering.
  */
 
 /** Touch pixels -> mouse pixels for look (phones need more turn per pixel than a mouse). */
@@ -22,6 +23,8 @@ const STICK_ZONE = 0.42; // fraction of the screen width that starts the stick
 const DEAD = 0.25; // stick dead zone (fraction of radius)
 const AXIS = 0.38; // per-axis threshold for 8-way snapping
 const SPRINT_AT = 0.92;
+const TURN_DEAD = 0.15; // sideways deflection before the stick starts steering the view
+const TURN_CURVE = 1.6; // >1: gentle near the centre, fast at full tilt
 
 /** [action, label, kind, diameter, centre-from-right, centre-from-bottom, variant] */
 const CLUSTER = [
@@ -197,11 +200,14 @@ export class TouchControls {
       if (Math.abs(nx) > AXIS) mx = Math.sign(nx);
       if (Math.abs(ny) > AXIS) mz = -Math.sign(ny);
     }
-    this.input.setStick(mx, mz, m > SPRINT_AT && mz > 0 && mx === 0);
+    // steering: sideways deflection turns the view, so the world swings round as you move
+    const hx = Math.max(-1, Math.min(1, dx / rad));
+    const t = Math.max(0, (Math.abs(hx) - TURN_DEAD) / (1 - TURN_DEAD));
+    this.input.setStick(mx, mz, m > SPRINT_AT && mz > 0 && mx === 0, Math.sign(hx) * t ** TURN_CURVE);
   }
 
   releaseStick() {
-    this.input.setStick(0, 0, false);
+    this.input.setStick(0, 0, false, 0);
     this.stickBase.classList.remove('on');
     this.stickBase.style.left = '';
     this.stickBase.style.top = '';
