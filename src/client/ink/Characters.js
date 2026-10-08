@@ -16,7 +16,7 @@
  * All poses are blended with exponential smoothing so state changes never pop.
  */
 import * as THREE from '/vendor/three/three.module.js';
-import { MoveState } from '/shared/constants.js';
+import { MoveState, PLAYER } from '/shared/constants.js';
 import { inkMaterial, flatMaterial } from '/client/ink/InkMaterials.js';
 
 const SUIT = 0x2b2f3a;
@@ -51,6 +51,8 @@ export class RunnerRig {
 
     // root: position + facing (name tag lives here); body: takes poses such as lying downed
     const root = new THREE.Group();
+    // Modelled ~2.1 m tall; scaled so the helmet sits on the server's head hitbox (PLAYER.HEAD_CENTER).
+    root.scale.setScalar(PLAYER.RIG_SCALE);
     this.root = root;
     const body = new THREE.Group();
     root.add(body);
