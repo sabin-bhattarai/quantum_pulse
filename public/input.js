@@ -7,6 +7,9 @@
  * same action states — nothing in the gameplay code changes.
  *
  * Pointer lock is used for aiming; mouse deltas are accumulated between frames.
+ * Touch devices have no pointer lock, so there `locked` is a virtual state that
+ * the on-screen controls (public/touch.js) toggle, and they feed actions, look
+ * deltas and a movement stick through the same API.
  */
 import { BTN } from '/shared/constants.js';
 
@@ -52,6 +55,16 @@ export function codeLabel(code) {
   return { Space: 'Space', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', Tab: 'Tab', AltLeft: 'L-Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' }[code] || code;
 }
 
+/**
+ * Phones and tablets get on-screen controls. `?touch=1` / `?touch=0` in the
+ * URL forces the choice (useful on hybrid laptops and for testing).
+ */
+export function detectTouch() {
+  const forced = new URLSearchParams(location.search).get('touch');
+  if (forced === '1' || forced === '0') return forced === '1';
+  return !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches;
+}
+
 /** Edge-triggered actions that map to "pressed" bits in the input command. */
 const PRESS_BITS = {
   jump: BTN.JUMP_P, slide: BTN.SLIDE_P, grapple: BTN.GRAPPLE_P, sprint: BTN.DASH_P, melee: BTN.MELEE_P,
@@ -77,6 +90,8 @@ export class InputManager {
     this.listeners = { lockchange: [], action: [] };
     this.captureCb = null;
     this.extraPressBits = 0;
+    this.touch = detectTouch();
+    this.stick = { mx: 0, mz: 0, sprint: false };
     this.rebuildBindings();
     this.bind();
   }
@@ -101,6 +116,7 @@ export class InputManager {
   }
 
   requestLock() {
+    if (this.touch) { this.setTouchLock(true); return; }
     if (!this.canvas || document.pointerLockElement === this.canvas) return;
     try {
       const r = this.canvas.requestPointerLock({ unadjustedMovement: true });
@@ -111,7 +127,19 @@ export class InputManager {
   }
 
   exitLock() {
+    if (this.touch) { this.setTouchLock(false); return; }
     if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  /** Touch devices: enter or leave play without pointer lock. Emits the same lockchange event. */
+  setTouchLock(on) {
+    if (this.locked === on) return;
+    this.locked = on;
+    if (!on) {
+      this.releaseAll();
+      this.setStick(0, 0, false);
+    }
+    this.emit('lockchange', on);
   }
 
   /** Capture the next key / mouse button (used by the rebinding UI). */
@@ -124,23 +152,26 @@ export class InputManager {
     window.addEventListener('keyup', (e) => this.onUp(e.code));
     window.addEventListener('mousedown', (e) => {
       if (this.captureCb) { this.finishCapture(`Mouse${e.button}`); e.preventDefault(); return; }
-      if (!this.locked) return;
+      // Taps on touch devices also fire compatibility mouse events; the on-screen controls handle those.
+      if (!this.locked || this.touch) return;
       this.onDown(`Mouse${e.button}`, e);
     });
     window.addEventListener('mouseup', (e) => this.onUp(`Mouse${e.button}`));
     window.addEventListener('mousemove', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.touch) return;
       // Ignore absurd spikes some browsers report when pointer lock engages.
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
       this.lookX += e.movementX;
       this.lookY += e.movementY;
     });
     window.addEventListener('wheel', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.touch) return;
       this.wheel += Math.sign(e.deltaY);
     }, { passive: true });
     window.addEventListener('contextmenu', (e) => { if (this.locked || this.enabled) e.preventDefault(); });
-    window.addEventListener('blur', () => this.releaseAll());
+    window.addEventListener('blur', () => { this.releaseAll(); if (this.touch) this.setTouchLock(false); });
+    // Pointer lock ends by itself when the tab is hidden; the virtual touch lock has to be released here.
+    document.addEventListener('visibilitychange', () => { if (document.hidden && this.touch) this.setTouchLock(false); });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas && !!this.canvas;
       if (!this.locked) this.releaseAll();
@@ -182,6 +213,35 @@ export class InputManager {
       this.held.delete(a);
       this.emit('action', a, false);
     }
+  }
+
+  /* ---- touch controls feed actions through these (same semantics as a key) ---- */
+
+  pressAction(action) {
+    if (!this.held.has(action)) this.pressedActions.add(action);
+    this.held.add(action);
+    this.emit('action', action, true);
+  }
+
+  releaseAction(action) {
+    if (this.held.delete(action)) this.emit('action', action, false);
+  }
+
+  /** Look delta in mouse-pixel units (already scaled for touch). */
+  addLook(dx, dy) {
+    this.lookX += dx;
+    this.lookY += dy;
+  }
+
+  /** Movement stick: mx / mz in {-1, 0, 1} (the protocol carries whole steps); sprint at full tilt. */
+  setStick(mx, mz, sprint) {
+    this.stick.mx = mx;
+    this.stick.mz = mz;
+    this.stick.sprint = sprint;
+  }
+
+  cycleWeapon(dir) {
+    this.wheel += dir;
   }
 
   releaseAll() {
@@ -228,8 +288,13 @@ export class InputManager {
     if (active) for (let i = 1; i <= 6; i++) if (this.pressedActions.has(`weapon${i}`)) weaponSelect = i - 1;
     this.pressedActions.clear();
     if (!active) return { mx: 0, mz: 0, buttons, weaponSelect };
-    const mz = (this.held.has('forward') ? 1 : 0) - (this.held.has('back') ? 1 : 0);
-    const mx = (this.held.has('right') ? 1 : 0) - (this.held.has('left') ? 1 : 0);
+    let mz = (this.held.has('forward') ? 1 : 0) - (this.held.has('back') ? 1 : 0);
+    let mx = (this.held.has('right') ? 1 : 0) - (this.held.has('left') ? 1 : 0);
+    if (!mx && !mz) {
+      mx = this.stick.mx;
+      mz = this.stick.mz;
+      if (this.stick.sprint) buttons |= BTN.SPRINT;
+    }
     return { mx, mz, buttons, weaponSelect };
   }
 }
