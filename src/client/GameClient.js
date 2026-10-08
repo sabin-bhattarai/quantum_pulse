@@ -210,7 +210,9 @@ export class GameClient {
       case EV.HIT: {
         const [, shooter, target, dmg, head, x, y, z, isEnemy] = e;
         this.hitFlash.set(target, this.time);
-        R.impact(x, y, z, head ? P.amber : P.white, head ? 14 : 7, 6);
+        // Never burst sparks on yourself: the hit point is inside your own camera and would blind you.
+        // Being hit is shown by the red halftone edges and the damage direction arrow instead.
+        if (target !== me) R.impact(x, y, z, head ? P.amber : P.white, head ? 14 : 7, 6);
         if (shooter === me) {
           this.ui.hitmarker(head ? 'head' : '');
           A.play(head ? 'headshot' : 'hit', { ui: true, throttle: 0.04 });
