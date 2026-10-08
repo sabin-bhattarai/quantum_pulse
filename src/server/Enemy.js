@@ -8,15 +8,15 @@
  * simulated only by the authoritative world — clients render snapshots.
  * @module server/Enemy
  */
-import { LIMITS, TEAM, PLAYER } from '../shared/constants.js';
-import { clamp, pointSegmentDistSq } from '../shared/math.js';
-import { raycastArena, queryColliders } from '../shared/movement.js';
+import { LIMITS, TEAM, PLAYER, BTN, ROGUE, rogueName } from '../shared/constants.js';
+import { clamp, pointSegmentDistSq, wrapAngle } from '../shared/math.js';
+import { raycastArena, queryColliders, createMoveState, stepMovement, MoveEvent } from '../shared/movement.js';
 import { accumulateFractureDeltaV, FractureMode } from '../shared/gravity.js';
 import { EV, PK } from '../shared/protocol.js';
 import { HISTORY_TICKS } from './Player.js';
 
 export const EnemyType = Object.freeze({
-  SWARM: 0, WARDEN: 1, STALKER: 2, CASTER: 3, RUNNER: 4, MIRROR: 5, TITAN: 6, DUMMY: 7,
+  SWARM: 0, WARDEN: 1, STALKER: 2, CASTER: 3, RUNNER: 4, MIRROR: 5, TITAN: 6, DUMMY: 7, ROGUE: 8,
 });
 
 export const AIState = Object.freeze({
@@ -42,6 +42,8 @@ export const ENEMY_DEFS = Object.freeze([
   { type: 5, name: 'Mirror Drone', hp: 150, radius: 0.8, speed: 14, accel: 28, mass: 1.2, score: 220, pulse: 9, hover: 2.5, damage: 9, weak: { y: 0, r: 0.38, f: 0.6 }, cost: 5 },
   { type: 6, name: 'Singularity Titan', hp: 3600, radius: 3.4, speed: 3, accel: 4, mass: 20, heavy: true, boss: true, score: 5000, pulse: 30, hover: 9, damage: 14, weak: { y: 0, r: 1.25, f: 3.1 }, cost: 40 },
   { type: 7, name: 'Target Dummy', hp: 600, radius: 0.75, speed: 0, accel: 0, mass: 99, heavy: true, score: 0, pulse: 2, hover: 1.0, damage: 0, weak: { y: 0.95, r: 0.32, f: 0 }, cost: 0 },
+  // Humanoid bot: moves with the player movement model; the weak point is the head.
+  { type: 8, name: 'Rogue Runner', hp: 70, radius: 0.62, speed: 0, accel: 0, mass: 1, light: true, humanoid: true, score: 150, pulse: 6, hover: ROGUE.CENTER, damage: 5, weak: { y: 0.78, r: 0.27, f: 0 }, cost: 3 },
 ]);
 
 /* Boids tuning (Drift Swarm). See updateSwarm for the explanation. */
@@ -134,6 +136,23 @@ export class Enemy {
     this.historyTicks.fill(-1);
     this.dummyMoving = !!opts.moving;
     this.spawnTime = 0;
+    // Rogue Runner (set up by EnemySystem.spawn)
+    this.move = null;
+    this.name = '';
+    this.engaged = false;
+    this.hunting = false;
+    this.canShoot = false;
+    this.reaction = 0;
+    this.idleTime = 0;
+    this.searchTime = 0;
+    this.strafeDir = id % 2 ? 1 : -1;
+    this.strafeTimer = 0;
+    this.hopTimer = 2 + (id % 5) * 0.6;
+    this.wanderX = x; this.wanderZ = z;
+    this.wanderTimer = 0;
+    this.safeX = x; this.safeY = y; this.safeZ = z;
+    this.wantMove = false;
+    this.blocked = false;
   }
 
   get targetable() {
@@ -216,6 +235,15 @@ export class EnemySystem {
     const e = this.pool[this.free.pop()];
     e.reset(this.world.nextId(), type, x, y, z, opts);
     e.spawnTime = this.world.time;
+    if (type === EnemyType.ROGUE) {
+      // (x, y, z) are the feet; e.y is the hit-sphere centre
+      e.move = createMoveState(x, y, z, opts.yaw || 0);
+      e.yaw = opts.yaw || 0;
+      e.y = y + ROGUE.CENTER;
+      e.homeY = y;
+      e.name = rogueName(e.id);
+      e.botInput = e.botInput || { mx: 0, mz: 0, yaw: 0, pitch: 0, buttons: 0 };
+    }
     this.active.push(e);
     if (e.def.boss) this.world.emit(EV.BOSS, e.id, 1);
     return e;
@@ -238,6 +266,7 @@ export class EnemySystem {
     // Rebuild the spatial hash with live enemies (see SpatialHash.js).
     w.spatial.clear();
     for (const e of this.active) if (e.active) w.spatial.insert(e);
+    this.assignFireTokens();
 
     for (let i = 0; i < this.active.length; i++) {
       const e = this.active[i];
@@ -285,6 +314,7 @@ export class EnemySystem {
     } else {
       e.lostTime += dt;
     }
+    if (e.move) { this.updateRogue(e, dt); return; }
     // Anti-stall "rift recall": an enemy that stays slow and sightless for a
     // long time is re-emitted from the rift nearest its target, so a wave can
     // never soft-lock on an enemy wedged in geometry.
@@ -1135,6 +1165,279 @@ export class EnemySystem {
   }
 
   /* ------------------------------------------------------------------ */
+  /* Rogue Runner — solo bots that move exactly like players              */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Fire tokens: only the few engaged Rogue Runners nearest their target may
+   * shoot this tick, so a crowd never opens fire at once and solo fights stay
+   * readable. The cap comes from the wave difficulty (2 early, up to 4 late).
+   */
+  assignFireTokens() {
+    const list = _rogues;
+    list.length = 0;
+    for (const e of this.active) {
+      if (!e.move) continue;
+      e.canShoot = false;
+      if (e.active && e.engaged && e.hasLOS && e.target) {
+        e.tokenDist = (e.target.x - e.x) ** 2 + (e.target.z - e.z) ** 2;
+        list.push(e);
+      }
+    }
+    if (!list.length) return;
+    list.sort((a, b) => a.tokenDist - b.tokenDist);
+    const n = Math.min(list.length, (this.world.difficulty && this.world.difficulty.shooters) || 2);
+    for (let i = 0; i < n; i++) list[i].canShoot = true;
+  }
+
+  /**
+   * Rogue Runners drive the shared player movement model (stepMovement) with
+   * synthesized inputs, so they run, jump, step up and fall like real runners.
+   *
+   *   PATROL  wander around their own spawn point, so a wave is spread across
+   *           the arena instead of piled on the player
+   *   CHASE   (engaged) hold a BAND_NEAR..BAND_FAR range, strafe, hop and fire
+   *           short bursts of dodgeable bolts, if they hold a fire token
+   *   SEARCH  walk to where the player was last seen, then return to patrol
+   *
+   * Awareness needs line of sight within SIGHT metres inside a forward view
+   * cone, or being shot. A runner left unengaged for HUNT_AFTER seconds starts
+   * hunting the player, so a wave can never stall. Every step is probed for
+   * floor ahead: runners never walk off an island by themselves (fractures and
+   * knockback still can push them, which counts as an environmental kill).
+   */
+  updateRogue(e, dt) {
+    const w = this.world;
+    const m = e.move;
+    const inp = e.botInput;
+    m.vx = e.vx; m.vy = e.vy; m.vz = e.vz; // keep knockback and other external pushes
+    inp.mx = 0; inp.mz = 0; inp.buttons = 0; inp.pitch = m.pitch;
+    e.wantMove = false;
+    e.blocked = false;
+    if (m.onGround) { e.safeX = m.x; e.safeY = m.y; e.safeZ = m.z; }
+    const t = e.target;
+
+    if (e.stunTimer > 0) {
+      e.stunTimer -= dt;
+      e.setState(AIState.STUNNED);
+      e.burstLeft = 0;
+    } else if (!t) {
+      this.roguePatrol(e, dt);
+    } else {
+      const dx = t.x - e.x, dz = t.z - e.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      const inView = (-Math.sin(e.yaw) * dx - Math.cos(e.yaw) * dz) / dist > ROGUE.VIEW_COS || dist < ROGUE.NEAR;
+      const shot = w.time - e.lastDamageTime < 1;
+      if ((e.hasLOS && dist < ROGUE.SIGHT && inView) || shot) {
+        if (!e.engaged || e.lostTime > 0.5) e.reaction = Math.max(e.reaction, ROGUE.REACTION + w.rng() * 0.35);
+        if (shot && !e.hasLOS) { e.lastKnownX = t.x; e.lastKnownY = t.y; e.lastKnownZ = t.z; e.lostTime = 0; }
+        e.engaged = true;
+        e.hunting = false;
+        e.idleTime = 0;
+        e.searchTime = 0;
+      }
+      if (e.engaged && e.lostTime < ROGUE.FORGET) {
+        this.rogueFight(e, t, dist, dt);
+      } else if (e.engaged || e.hunting) {
+        e.setState(AIState.SEARCH);
+        e.searchTime += dt;
+        const left = this.rogueWalkTo(e, e.lastKnownX, e.lastKnownZ, e.hunting, dt);
+        if (left < 2.5 && e.hunting) { e.lastKnownX = t.x; e.lastKnownZ = t.z; } // hunting re-reads the target
+        // the way is cut by a gap: a searcher gives up; a hunter re-enters nearer (see stuck check below)
+        if (!e.hunting && (left < 2.5 || e.blocked || e.searchTime > ROGUE.SEARCH)) { e.engaged = false; e.searchTime = 0; }
+      } else {
+        this.roguePatrol(e, dt);
+        e.idleTime += dt;
+        const huntAfter = this.countType(EnemyType.ROGUE) <= 2 ? ROGUE.HUNT_AFTER_LAST : ROGUE.HUNT_AFTER;
+        if (e.idleTime > huntAfter) {
+          e.hunting = true;
+          e.lastKnownX = t.x; e.lastKnownZ = t.z;
+        }
+      }
+    }
+
+    // Airborne over the void (pad launch, knockback, a hop near an edge): steer back to the last floor.
+    if (!m.onGround && this.groundAt(m.x + m.vx * 0.3, m.z + m.vz * 0.3, m.y + 0.5, 40) === null) {
+      inp.mx = 0; inp.mz = 0; inp.buttons &= ~(BTN.JUMP | BTN.JUMP_P);
+      this.rogueInput(e, e.safeX - m.x, e.safeZ - m.z, false);
+    }
+
+    inp.yaw = e.yaw;
+    const px = m.x, pz = m.z;
+    const ev = stepMovement(m, inp, w.env, dt);
+    e.x = m.x; e.y = m.y + ROGUE.CENTER; e.z = m.z;
+    e.vx = m.vx; e.vy = m.vy; e.vz = m.vz;
+    if ((ev & MoveEvent.FELL_OUT) || m.y < w.arena.killY) { w.killEnemy(e, e.lastHitBy, { environmental: true }); return; }
+
+    // Wants to get somewhere but makes no progress without sight (pressed into a wall, or cut
+    // off by a gap): re-enter through a rift elsewhere. Progress is measured from the actual
+    // displacement; the movement velocity stays high while pushing against a wall.
+    const progress = Math.hypot(m.x - px, m.z - pz) / dt > 0.8;
+    e.stuckTime = e.wantMove && !progress && !e.hasLOS ? (e.stuckTime || 0) + dt : Math.max(0, (e.stuckTime || 0) - dt);
+    if (e.stuckTime > (e.hunting ? 4 : 8)) this.rogueRelocate(e);
+  }
+
+  /** Engaged: range band, strafing, hops and burst fire. */
+  rogueFight(e, t, dist, dt) {
+    const w = this.world;
+    const m = e.move;
+    const inp = e.botInput;
+    e.setState(e.burstLeft > 0 ? AIState.ATTACK : AIState.CHASE);
+    // aim (smoothly: flanking a runner works)
+    const tx = e.hasLOS ? t.x : e.lastKnownX, tz = e.hasLOS ? t.z : e.lastKnownZ;
+    const ax = tx - e.x, az = tz - e.z;
+    const ay = (e.hasLOS ? t.y : e.lastKnownY) + 1.1 - (m.y + PLAYER.EYE_HEIGHT);
+    e.yaw = turnToward(e.yaw, Math.atan2(-ax, -az), ROGUE.TURN_RATE * dt);
+    inp.pitch = clamp(Math.atan2(ay, Math.hypot(ax, az)), -1.2, 1.2);
+
+    // movement: hold the band and strafe; close in when sight is lost
+    e.strafeTimer -= dt;
+    if (e.strafeTimer <= 0) { e.strafeDir = w.rng() < 0.5 ? -1 : 1; e.strafeTimer = 1.1 + w.rng() * 1.6; }
+    const radial = !e.hasLOS ? 1 : dist > ROGUE.BAND_FAR ? 1 : dist < ROGUE.BAND_NEAR ? -1 : 0;
+    const ux = ax / (Math.hypot(ax, az) || 1), uz = az / (Math.hypot(ax, az) || 1);
+    const strafe = e.hasLOS ? e.strafeDir * 0.8 : 0;
+    let wx = ux * radial - uz * strafe, wz = uz * radial + ux * strafe;
+    if (!this.rogueSafe(e, wx, wz)) {
+      e.strafeDir = -e.strafeDir; // edge on this side: strafe the other way
+      wx = ux * radial - uz * -strafe; wz = uz * radial + ux * -strafe;
+      if (!this.rogueSafe(e, wx, wz)) { wx = 0; wz = 0; }
+    }
+    this.rogueInput(e, wx, wz);
+    if (wx || wz) e.wantMove = true;
+    if (!e.hasLOS && dist > ROGUE.BAND_FAR + 8) inp.buttons |= BTN.SPRINT;
+    e.hopTimer -= dt;
+    if (e.hopTimer <= 0 && m.onGround && e.hasLOS && this.rogueSafe(e, wx || ux, wz || uz, 3)) { inp.buttons |= BTN.JUMP | BTN.JUMP_P; e.hopTimer = 3 + w.rng() * 4; }
+
+    // fire: short bursts of visible bolts, only with a fire token
+    e.reaction -= dt;
+    if (e.burstLeft > 0) {
+      e.burstTimer -= dt;
+      if (e.burstTimer <= 0) {
+        this.rogueShoot(e, t);
+        e.burstLeft--;
+        e.burstTimer = ROGUE.BURST_GAP;
+      }
+    } else if (e.canShoot && e.hasLOS && e.reaction <= 0 && e.attackCooldown <= 0 && dist < ROGUE.RANGE) {
+      e.burstLeft = ROGUE.BURST;
+      e.burstTimer = 0;
+      e.attackCooldown = ROGUE.COOLDOWN + w.rng() * 0.8;
+    }
+  }
+
+  /** One bolt from the rifle, with aim error; dodgeable because it travels. */
+  rogueShoot(e, t) {
+    const w = this.world;
+    const m = e.move;
+    const ox = m.x - Math.sin(e.yaw) * 0.5, oy = m.y + 1.35, oz = m.z - Math.cos(e.yaw) * 0.5;
+    const yaw = Math.atan2(-(t.x - ox), -(t.z - oz)) + (w.rng() - 0.5) * 2 * ROGUE.SPREAD;
+    const pitch = Math.atan2(t.y + 1.1 - oy, Math.hypot(t.x - ox, t.z - oz)) + (w.rng() - 0.5) * 2 * ROGUE.SPREAD;
+    const cp = Math.cos(pitch);
+    const speed = ROGUE.BOLT_SPEED;
+    w.spawnProjectile({
+      kind: PK.ENEMY_BOLT, owner: e, team: TEAM.ENEMIES, x: ox, y: oy, z: oz,
+      vx: -Math.sin(yaw) * cp * speed, vy: Math.sin(pitch) * speed, vz: -Math.cos(yaw) * cp * speed,
+      gravity: 0, life: 2, radius: 0.22, damage: e.def.damage * e.damageScale, weapon: -1, splashRadius: 0, splashDamage: 0,
+    });
+  }
+
+  /** Wander around the spawn point, looking about; never off a ledge. */
+  roguePatrol(e, dt) {
+    const w = this.world;
+    e.setState(AIState.PATROL);
+    e.wanderTimer -= dt;
+    const m = e.move;
+    if (e.wanderTimer <= 0) {
+      e.wanderTimer = 4 + w.rng() * 4;
+      for (let i = 0; i < 4; i++) {
+        const a = w.rng() * Math.PI * 2, r = 3 + w.rng() * (ROGUE.WANDER_RADIUS - 3);
+        const px = e.homeX + Math.cos(a) * r, pz = e.homeZ + Math.sin(a) * r;
+        const gy = this.groundAt(px, pz, e.homeY + 2.5);
+        if (gy !== null && Math.abs(gy - e.homeY) < 1.2) { e.wanderX = px; e.wanderZ = pz; break; }
+      }
+    }
+    const left = this.rogueWalkTo(e, e.wanderX, e.wanderZ, false, dt);
+    if (left < 1.2) e.yaw = wrapAngle(e.yaw + Math.sin(w.time * 0.7 + e.poolIndex) * 0.9 * dt); // look around
+    e.botInput.pitch *= 0.9;
+  }
+
+  /** Walk (or sprint) toward a point, facing the way they go. Returns the remaining distance. */
+  rogueWalkTo(e, x, z, sprint, dt) {
+    const dx = x - e.x, dz = z - e.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1.2) return d;
+    const wx = dx / d, wz = dz / d;
+    e.yaw = turnToward(e.yaw, Math.atan2(-wx, -wz), ROGUE.TURN_RATE * 0.7 * dt);
+    e.wantMove = true;
+    if (!this.rogueSafe(e, wx, wz)) { e.wanderTimer = 0; e.blocked = true; return d; } // edge ahead: pick another point
+    this.rogueInput(e, wx, wz);
+    if (sprint) e.botInput.buttons |= BTN.SPRINT;
+    return d;
+  }
+
+  /** World-space wish direction -> yaw-relative movement axes (+ hop over low cover with floor beyond). */
+  rogueInput(e, wx, wz, hop = true) {
+    const inp = e.botInput;
+    const len = Math.hypot(wx, wz);
+    if (len < 1e-3) return;
+    wx /= len; wz /= len;
+    const sy = Math.sin(e.yaw), cy = Math.cos(e.yaw);
+    inp.mz = -sy * wx - cy * wz; // along forward (-sin, -cos)
+    inp.mx = cy * wx - sy * wz; // along right (cos, -sin)
+    const m = e.move;
+    if (hop && m.onGround) {
+      const hit = raycastArena(this.world.env, m.x, m.y + 0.45, m.z, wx, 0, wz, 1.2, false, false);
+      const c = hit.t >= 0 ? hit.collider : null;
+      if (c && c.maxY - m.y < 1.5 && this.groundAt(m.x + wx * 2.4, m.z + wz * 2.4, c.maxY + 0.5, 3) !== null) {
+        inp.buttons |= BTN.JUMP | BTN.JUMP_P;
+      }
+    }
+  }
+
+  /**
+   * True if there is floor `ahead` metres in this direction and it is not a
+   * launch pad (a pad's arc carries a runner off its island).
+   */
+  rogueSafe(e, wx, wz, ahead = 1.4) {
+    const len = Math.hypot(wx, wz);
+    if (len < 1e-3) return true;
+    const m = e.move;
+    const px = m.x + (wx / len) * ahead, pz = m.z + (wz / len) * ahead;
+    for (const pad of this.world.arena.pads || []) {
+      if (Math.abs(pad.y - m.y) < 2 && Math.hypot(pad.x - px, pad.z - pz) < pad.r + 0.9) return false;
+    }
+    return this.groundAt(px, pz, m.y + 0.6, 3.5) !== null;
+  }
+
+  /** Floor height under (x, z) searching down from fromY, or null. */
+  groundAt(x, z, fromY, depth = 6) {
+    const hit = raycastArena(this.world.env, x, fromY, z, 0, -1, 0, depth, false, false);
+    return hit.t >= 0 ? fromY - hit.t : null;
+  }
+
+  /** Re-enter through a rift at a spawn point away from the player. */
+  rogueRelocate(e) {
+    const w = this.world;
+    const t = e.target;
+    let best = null, bestScore = -Infinity;
+    for (const s of w.arena.spawns) {
+      const d = t ? Math.hypot(s.x - t.x, s.z - t.z) : 30;
+      if (d < ROGUE.SPAWN_MIN_DIST) continue;
+      const score = -Math.abs(d - 28) + w.rng() * 6;
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+    if (!best) return;
+    const m = e.move;
+    m.x = best.x; m.y = best.y; m.z = best.z;
+    m.vx = m.vy = m.vz = 0;
+    e.vx = e.vy = e.vz = 0;
+    e.homeX = best.x; e.homeY = best.y; e.homeZ = best.z;
+    e.wanderX = best.x; e.wanderZ = best.z;
+    e.stuckTime = 0;
+    e.engaged = false;
+    w.emit(EV.RIFT, q(best.x), q(best.y + 1), q(best.z));
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Attack helpers                                                       */
   /* ------------------------------------------------------------------ */
 
@@ -1179,6 +1482,14 @@ export class EnemySystem {
       splashRadius: extra ? extra.splashRadius : 0, splashDamage: extra ? extra.splashDamage * e.damageScale : 0,
     });
   }
+}
+
+const _rogues = [];
+
+/** Rotate angle `a` toward `b` by at most `max` radians. */
+function turnToward(a, b, max) {
+  const d = wrapAngle(b - a);
+  return wrapAngle(a + clamp(d, -max, max));
 }
 
 function q(v, d = 2) {

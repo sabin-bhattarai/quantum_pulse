@@ -528,7 +528,7 @@ export class World {
       addPulse(this, k, gain);
       if (k.mods.leech > 0) k.health = Math.min(k.maxHealth, k.health + k.mods.leech);
       const flags = (opts.headshot ? 1 : 0) | (airborne ? 2 : 0) | (environmental ? 4 : 0) | (e.elite ? 8 : 0);
-      this.emit(EV.KILL, k.id, k.name, e.id, e.def.name, opts.weapon ?? -1, flags);
+      this.emit(EV.KILL, k.id, k.name, e.id, e.name || e.def.name, opts.weapon ?? -1, flags);
     }
     this.dropLoot(e);
     this.enemies.release(e);
@@ -1049,7 +1049,9 @@ export class World {
       if (en.stunTimer > 0) flags |= EF.STUNNED;
       if (en.charging) flags |= EF.CHARGING;
       if (en.weakOpenTimer > 0) flags |= EF.WEAKPOINT_OPEN;
-      e.push([en.id, en.type, quantize(en.x), quantize(en.y), quantize(en.z), quantize(en.yaw, 2), Math.max(0, Math.round((en.hp / en.maxHp) * 100)), en.state, flags]);
+      const row = [en.id, en.type, quantize(en.x), quantize(en.y), quantize(en.z), quantize(en.yaw, 2), Math.max(0, Math.round((en.hp / en.maxHp) * 100)), en.state, flags];
+      if (en.move) row.push(en.move.state, quantize(en.move.pitch, 2)); // Rogue Runner: animate like a player
+      e.push(row);
     }
     const pr = [];
     for (const x of this.projectiles) {
