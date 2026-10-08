@@ -524,6 +524,53 @@ body.locked .mute-toggle { display: none; }
 body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::after { animation-duration: 0.001s !important; }
 
 /* ------------------------------------------------------------------------
+   Touch controls (phones and tablets; body.touch is set from input.touch)
+   ------------------------------------------------------------------------ */
+.touch-ui {
+  display: none; position: fixed; inset: 0; z-index: 8; --k: 1;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+body.touch.locked .touch-ui { display: block; }
+@media (max-height: 380px) { .touch-ui { --k: 0.85; } }
+@media (min-height: 600px) { .touch-ui { --k: 1.2; } }
+.tc-btn {
+  position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  width: calc(var(--d) * var(--k) * 1px); height: calc(var(--d) * var(--k) * 1px);
+  right: calc((var(--r) - var(--d) / 2) * var(--k) * 1px); bottom: calc((var(--b) - var(--d) / 2) * var(--k) * 1px);
+  background: rgba(239, 230, 210, 0.82); color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink);
+  font-family: var(--display); font-size: calc(var(--d) * var(--k) * 0.22px + 4px); letter-spacing: 0.04em; text-transform: uppercase;
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out, background 0.1s;
+}
+.tc-btn.long { font-size: calc(var(--d) * var(--k) * 0.17px + 3px); letter-spacing: 0.01em; }
+.tc-btn.on { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); background: var(--yellow); }
+.tc-btn.primary { background: rgba(230, 59, 46, 0.88); color: var(--paper); font-size: calc(var(--k) * 20px); }
+.tc-btn.primary.on { background: var(--signal-deep); }
+.tc-row { position: absolute; left: 62px; top: 58px; display: flex; gap: calc(var(--k) * 8px); }
+.tc-row .tc-btn, .tc-btn.pause { position: relative; right: auto; bottom: auto; width: calc(var(--k) * 48px); height: calc(var(--k) * 48px); font-size: calc(var(--k) * 13px); }
+.tc-row .tc-btn.accent { background: rgba(242, 194, 48, 0.9); }
+.tc-btn.pause { position: absolute; left: 10px; top: 10px; width: 44px; height: 44px; border-radius: var(--radius); }
+.tc-btn.pause svg { width: 22px; height: 22px; fill: var(--ink); }
+.tc-stick {
+  position: absolute; left: calc(var(--k) * 96px); top: calc(100% - var(--k) * 96px);
+  width: calc(var(--k) * 116px); height: calc(var(--k) * 116px); transform: translate(-50%, -50%);
+  border-radius: 50%; border: 3px dashed rgba(22, 19, 15, 0.55); background: rgba(239, 230, 210, 0.18); pointer-events: none;
+}
+.tc-stick.on { border-style: solid; border-color: var(--ink); background: rgba(239, 230, 210, 0.3); }
+.tc-knob {
+  position: absolute; left: 50%; top: 50%; width: calc(var(--k) * 52px); height: calc(var(--k) * 52px); margin: calc(var(--k) * -26px) 0 0 calc(var(--k) * -26px);
+  border-radius: 50%; background: var(--paper); border: 3px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
+}
+
+/* HUD rearranged around the thumbs: vitals top-left, weapon + Pulse bottom-centre, no key hints. */
+body.touch .hud { --hud-fit: 0.62; }
+body.touch .hud-bottomleft { top: 10px; bottom: auto; left: 62px; transform-origin: top left; }
+body.touch .hud-bottomright { right: auto; left: 50%; bottom: 48px; transform: translateX(-50%) scale(var(--hud-scale)); transform-origin: bottom center; align-items: center; text-align: center; }
+body.touch .hud-bottomcenter { bottom: 10px; }
+body.touch .pulse-meter { width: 260px; }
+body.touch .team-status { top: 124px; }
+body.touch .abilities, body.touch .weapon-slots, body.touch .training-panel, body.touch .tutorial, body.touch .hud-topright { display: none !important; }
+
+/* ------------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------------ */
 @media (max-width: 1100px) {

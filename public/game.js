@@ -8,6 +8,7 @@
  */
 import { Renderer } from './renderer.js';
 import { InputManager, DEFAULT_BINDINGS } from './input.js';
+import { TouchControls } from './touch.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { WebSocketTransport, LocalTransport } from './network.js';
@@ -112,6 +113,10 @@ class App {
     }
     this.input = new InputManager(this.settings);
     this.input.attach(canvas);
+    if (this.input.touch) {
+      document.body.classList.add('touch');
+      this.touch = new TouchControls(this.input, document.getElementById('touch-ui'));
+    }
     this.audio = new AudioEngine(this.settings);
     try {
       this.renderer = new Renderer(canvas, this.settings);
