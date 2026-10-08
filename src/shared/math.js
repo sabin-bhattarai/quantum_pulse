@@ -206,6 +206,35 @@ export function raySphere(ox, oy, oz, dx, dy, dz, cx, cy, cz, r, maxT) {
   return t;
 }
 
+/**
+ * Ray vs vertical capsule (axis from (cx, y0, cz) to (cx, y1, cz), radius r).
+ * `dir` must be normalised.
+ * @returns {number} entry distance or -1.
+ */
+export function rayVerticalCapsule(ox, oy, oz, dx, dy, dz, cx, y0, y1, cz, r, maxT) {
+  let best = -1;
+  // side wall: infinite cylinder, accepted only between the end centres
+  const a = dx * dx + dz * dz;
+  if (a > 1e-9) {
+    const fx = ox - cx, fz = oz - cz;
+    const b = fx * dx + fz * dz;
+    const c = fx * fx + fz * fz - r * r;
+    const disc = b * b - a * c;
+    if (disc >= 0) {
+      let t = (-b - Math.sqrt(disc)) / a;
+      if (t < 0 && c <= 0) t = 0; // origin already inside the cylinder
+      const y = oy + dy * t;
+      if (t >= 0 && t <= maxT && y >= y0 && y <= y1) best = t;
+    }
+  }
+  // rounded ends
+  const t0 = raySphere(ox, oy, oz, dx, dy, dz, cx, y0, cz, r, maxT);
+  if (t0 >= 0 && (best < 0 || t0 < best)) best = t0;
+  const t1 = raySphere(ox, oy, oz, dx, dy, dz, cx, y1, cz, r, maxT);
+  if (t1 >= 0 && (best < 0 || t1 < best)) best = t1;
+  return best;
+}
+
 /** Overlap test between two AABBs given as {minX..maxZ}. */
 export function aabbOverlap(a, b) {
   return a.minX < b.maxX && a.maxX > b.minX &&
