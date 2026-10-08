@@ -221,7 +221,7 @@ export class UI {
     document.body.classList.toggle('cb', !!s.colorblind);
     document.body.classList.toggle('hc', !!s.highContrastHud);
     document.body.classList.toggle('reduced-motion', !!s.reducedFlashes);
-    document.documentElement.style.setProperty('--hud-scale', String(s.hudScale || 1));
+    document.documentElement.style.setProperty('--hud-user', String(s.hudScale || 1));
     $('#crosshair').style.setProperty('--ch-scale', String(s.crosshairSize || 1));
     $('#hud-fps').hidden = !s.showFps;
     $('#debug-overlay').hidden = !s.debug;
