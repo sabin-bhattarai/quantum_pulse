@@ -531,6 +531,7 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 body.touch.locked .touch-ui { display: block; }
+body:not(.touch) .touch-only { display: none !important; }
 @media (max-height: 380px) { .touch-ui { --k: 0.85; } }
 @media (min-height: 600px) { .touch-ui { --k: 1.2; } }
 .tc-btn {
