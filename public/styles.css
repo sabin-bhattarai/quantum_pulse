@@ -26,7 +26,9 @@
   --shadow: 5px 5px 0 var(--ink);
   --shadow-sm: 3px 3px 0 var(--ink);
   --radius: 4px;
-  --hud-scale: 1;
+  /* HUD size = player setting (--hud-user, set from JS) x screen fit (--hud-fit, set by media queries) */
+  --hud-user: 1;
+  --hud-fit: 1;
   --display: "Anton", "Impact", "Haettenschweiler", "Arial Narrow Bold", sans-serif;
   --ui: "Archivo Variable", "Archivo", "Helvetica Neue", Arial, sans-serif;
 
@@ -262,7 +264,7 @@ kbd {
 /* ------------------------------------------------------------------------
    In-game HUD — captions over the action
    ------------------------------------------------------------------------ */
-.hud { position: fixed; inset: 0; z-index: 5; pointer-events: none; color: var(--ink); }
+.hud { position: fixed; inset: 0; z-index: 5; pointer-events: none; color: var(--ink); --hud-scale: calc(var(--hud-user) * var(--hud-fit)); }
 .hud > * { position: absolute; }
 .cap { background: var(--paper); border: var(--stroke) solid var(--ink); box-shadow: var(--shadow-sm); }
 
@@ -530,7 +532,7 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
   .pulse-meter { width: 300px; }
 }
 @media (max-width: 760px), (max-height: 600px) {
-  :root { --hud-scale: 0.78; }
+  :root { --hud-fit: 0.78; }
   #screen-menu { justify-content: flex-start; overflow: auto; padding: 4vh 4vw 6vh; }
   .menu-modes { grid-template-columns: 1fr; }
   .howto-grid { grid-template-columns: 1fr; }
