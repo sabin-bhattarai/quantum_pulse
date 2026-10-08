@@ -595,7 +595,8 @@ export class Renderer {
   /* ---------------------------------------------------------------- */
 
   buildBursts() {
-    this.burstTextures = [burstTexture(''), burstTexture('', '#efe6d2'), ...ONOMATOPOEIA.map((w) => burstTexture(w))];
+    this.burstTextures = [burstTexture(''), burstTexture('', '#efe6d2'), ...ONOMATOPOEIA.map((w) => burstTexture(w)), burstTexture('HEADSHOT!', '#e63b2e')];
+    this.headshotKind = this.burstTextures.length - 1;
     this.burstSprites = [];
     this.bursts = [];
     for (let i = 0; i < 24; i++) {
@@ -755,6 +756,11 @@ export class Renderer {
     this.rings.add({ x, y, z, r0: 0.3, r1: radius * 1.2, life: 0.45, color, thickness: 0.22, face: 'camera' });
     this.rings.add({ x, y: y - 0.2, z, r0: 0.3, r1: radius * 1.5, life: 0.6, color, thickness: 0.12, face: 'up' });
     this.burst(x, y + 0.5, z, radius > 3 ? 5 : 0, Math.min(5, 1.4 + radius * 0.6), 0.5);
+  }
+
+  /** Headshot feedback for the shooter: a red lettered burst at the impact. */
+  headshot(x, y, z) {
+    this.burst(x, y + 0.35, z, this.headshotKind, 1.05, 0.55);
   }
 
   /** Enemy death: inked shards + a lettered comic burst. */
