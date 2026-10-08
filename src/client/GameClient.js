@@ -31,11 +31,12 @@ const MODE_LABELS = { survival: 'Solo Survival', ffa: 'Free-for-All', coop: 'Rif
 
 const TUTORIAL = [
   { id: 'move', text: 'Move with W A S D' },
-  { id: 'sprint', text: 'Hold Shift to sprint' },
+  { id: 'sprint', text: 'Run forward: you sprint automatically' },
   { id: 'jump', text: 'Press Space to jump' },
-  { id: 'slide', text: 'Sprint, then press C to slide' },
+  { id: 'slide', text: 'While sprinting, press C to slide' },
   { id: 'slidejump', text: 'Jump out of a slide to keep momentum' },
-  { id: 'dash', text: 'In the air, press Shift to air-dash' },
+  { id: 'dash', text: 'Double-tap Space for a long jump' },
+  { id: 'zoom', text: 'Tap Shift to zoom, tap again to zoom out' },
   { id: 'walljump', text: 'Jump into a wall, then jump again to wall-jump' },
   { id: 'grapple', text: 'Aim at geometry and press Q to grapple' },
   { id: 'launch', text: 'While grappling, press Space to launch' },
@@ -577,6 +578,8 @@ export class GameClient {
     const accepting = this.acceptingInput;
     const me = this.me;
     let buttons = accepting ? s.buttons : 0;
+    // tap-to-zoom aims exactly like holding RMB (tighter spread)
+    if (accepting && this.input.zoomToggled && WEAPONS[this.weapon].zoom < 1) buttons |= BTN.ALT;
     let mx = accepting ? s.mx : 0, mz = accepting ? s.mz : 0;
 
     // Number keys pick upgrades while the upgrade overlay is open.
@@ -840,10 +843,11 @@ export class GameClient {
     // ---- zoom: hold Aim (right mouse / touch Aim) to look down the sights ----
     const zdef = WEAPONS[this.weapon];
     const meNow = this.me;
-    const wantZoom = zdef.zoom < 1 && this.acceptingInput && this.input.isHeld('alt') && !!(meNow && meNow.al && !(meNow.dn > 0) && !(meNow.rl >= 0));
+    const wantZoom = zdef.zoom < 1 && this.acceptingInput && (this.input.isHeld('alt') || this.input.zoomToggled) && !!(meNow && meNow.al && !(meNow.dn > 0) && !(meNow.rl >= 0));
     this.zoom += ((wantZoom ? zdef.zoom : 1) - this.zoom) * Math.min(1, dt * 14);
     const ads = zdef.zoom < 1 ? clamp((1 - this.zoom) / (1 - zdef.zoom), 0, 1) : 0;
     const scoped = zdef.zoom < 0.5 && ads > 0.85;
+    if (ads > 0.6) this.tutorialHit('zoom');
     this.ui.setScope(scoped);
     const bobAmp = (this.settings.reducedFlashes ? 0 : grounded ? clamp(hs / 13, 0, 1) : 0) * (1 - ads);
     this.vm.bob += dt * hs * 0.9;
