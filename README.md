@@ -152,7 +152,7 @@ Touch devices get on-screen controls automatically. Play in landscape; starting 
 
 | Action | Touch |
 |---|---|
-| Move | Left thumb anywhere on the left side: a floating stick appears under it. Push it all the way forward to sprint. |
+| Move | Left thumb anywhere on the left side: a floating stick appears under it. Push it all the way forward to sprint. Pushing it sideways also turns the view, like steering (Settings → Gameplay → *Touch: joystick also turns the view*). |
 | Look | Drag anywhere on the right side |
 | Fire | Hold **Fire**. You can also drag on it to aim while firing. |
 | Jump · slide · air dash · grapple | **Jump**, **Slide**, **Dash**, **Hook** |
