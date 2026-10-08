@@ -146,6 +146,25 @@ Each mode starts in an arena with three always-available weapons. Survival unloc
 All bindings can be changed under **Settings → Controls**.
 \*Browsers reserve some `Ctrl` shortcuts (e.g. `Ctrl+W` closes the tab), so `C` is the safer slide key.
 
+### Touch (phones and tablets)
+
+Touch devices get on-screen controls automatically. Play in landscape; starting or resuming a match goes fullscreen where the browser allows it.
+
+| Action | Touch |
+|---|---|
+| Move | Left thumb anywhere on the left side: a floating stick appears under it. Push it all the way forward to sprint. |
+| Look | Drag anywhere on the right side |
+| Fire | Hold **Fire**. You can also drag on it to aim while firing. |
+| Jump · slide · air dash · grapple | **Jump**, **Slide**, **Dash**, **Hook** |
+| Aim / alt-fire | **Aim** (toggle) |
+| Reload · next weapon | **Reload**, **Swap** |
+| Phase Break · gravity well · melee · interact | **Phase**, **Well**, **Melee**, **Use** (the row under the health bars) |
+| Pause | The **II** button in the top-left corner |
+
+<p align="center"><img src="docs/images/touch.jpg" alt="Touch controls in a solo match: stick bottom-left, ability row under the vitals, fire and movement buttons bottom-right" width="640"></p>
+
+The stick snaps to eight directions because the input protocol carries whole steps. Add `?touch=1` to the URL to force touch controls on (e.g. a touchscreen laptop), or `?touch=0` to turn them off.
+
 ---
 
 ## Game modes
@@ -322,9 +341,9 @@ Simulation constants (tick rate, speeds, limits) are compile-time values in `src
 
 ## Browser compatibility
 
-Tested during development in Chromium (Brave), headless. Designed for current Chrome, Edge, Firefox and Safari on desktop: WebGL 1/2, ES modules, Pointer Lock, Web Audio and WebSocket. If WebGL is missing the game shows an explanation instead of crashing, and if WebSockets or the server are unavailable the online modes are disabled while offline modes keep working. Phones and tablets load the menu but show a notice instead of offering touch controls, because touch and gamepad input are not implemented yet. The action-based input layer ([`public/input.js`](public/input.js)) is where they would plug in.
+Tested during development in Chromium (Brave), headless. Designed for current Chrome, Edge, Firefox and Safari on desktop: WebGL 1/2, ES modules, Pointer Lock, Web Audio and WebSocket. If WebGL is missing the game shows an explanation instead of crashing, and if WebSockets or the server are unavailable the online modes are disabled while offline modes keep working. Phones and tablets play with on-screen [touch controls](#touch-phones-and-tablets) in landscape. Pointer Lock is not available on mobile browsers, so touch play uses a virtual lock instead. Gamepad input is not implemented yet; the action-based input layer ([`public/input.js`](public/input.js)) is where it would plug in.
 
-<p align="center"><img src="docs/images/phone.jpg" alt="Main menu on a phone, with the keyboard-and-mouse notice" width="260"></p>
+<p align="center"><img src="docs/images/phone.jpg" alt="Main menu on a phone, with the touch controls primer" width="260"></p>
 
 ## Troubleshooting
 
@@ -333,6 +352,7 @@ Tested during development in Chromium (Brave), headless. Designed for current Ch
 | Blank page or "must be served over HTTP" | Don't open `index.html` from disk. Run `npm start`. |
 | 404 for `/vendor/three/three.module.js` | Run `npm install` (Three.js is served from `node_modules`). |
 | Mouse look does nothing | Click the game view to capture the pointer. `Esc` releases it. |
+| Touch controls missing on a tablet, or showing on a touchscreen laptop | Add `?touch=1` or `?touch=0` to the URL. |
 | "Game server unreachable" | Check that the server is running and that a proxy forwards `/ws` upgrades. |
 | "Server version mismatch" | Hard-refresh the page after updating the server. |
 | Low FPS | Settings → Graphics: Quality *Low*, Particles *Reduced*, Render scale 75%, disable post-processing. Make sure hardware acceleration is enabled. |
@@ -366,6 +386,7 @@ quantum-pulse/
 │   ├── game.js             app bootstrap, settings, match lifecycle, rAF loop
 │   ├── renderer.js         Three.js scene, arena builder, entities, viewmodel, post-FX
 │   ├── input.js            action-based keyboard/mouse input, pointer lock, rebinding
+│   ├── touch.js            on-screen touch controls (stick, look, buttons)
 │   ├── network.js          WebSocketTransport (online) / LocalTransport (offline)
 │   ├── audio.js            procedural Web Audio engine + music
 │   ├── ui.js               menus, settings, HUD, overlays
