@@ -71,18 +71,15 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 | 5 | Phase Blades | Melee slash. Swinging on the beat deals 1.6× damage, and alt-fire deflects projectiles. |
 | 6 | Echo Repeater | Each shot repeats along the same trajectory 0.6 s later, with a visible marker |
 
-**Eight enemy archetypes plus training dummies.** Each runs on a finite-state machine (Idle, Patrol, Search, Chase, Attack, Evade, Support, Stunned, Retreat, Dead).
+**Aiming and hit registration.** Hold `RMB` (touch: **Aim**) to zoom: about 1.7× on the carbine and Echo Repeater, a 2.9× scope on the Vector Lance, and a slight zoom on the Arc Scatter and launcher. Look sensitivity scales with the zoom. Every shot, pellets included, is tested against a body capsule and head sphere that match the drawn character, rewound to what the shooter saw. Headshots deal 2× (1.5× for scatter pellets) and pop a **HEADSHOT!** burst.
+
+**Rogue Runners, all on foot.** Every mode fights bot runners that look and move like players; nothing flies. They run on a finite-state machine (Patrol, Search, Chase, Attack, Stunned) on top of the shared player movement model.
 
 | Enemy | Behaviour | Counterplay |
 |---|---|---|
-| Drift Swarm | Boids flock (separation / alignment / cohesion over a spatial hash) and telegraphed dives | Keep moving and use area damage |
-| Anchor Warden | Heavy and knockback-resistant. Fires slow heavy orbs and casts telegraphed Gravity Fractures. | Leave the warning ring and shoot the top core |
-| Phase Stalker | Cloaks and hunts the *most isolated* runner, with a 0.85 s audio + shimmer warning before it lunges | Listen for the cue and stay near teammates |
-| Rift Caster | Support: shields allies, opens portals that spawn swarm drones, and fires projectile rings or fans | Close the distance and focus it first |
-| Shard Runner | Locks a direction, charges and leaves damaging trails | Interrupt the wind-up with 25+ damage, or sidestep the red line |
-| Mirror Drone | Replays its target's motion 0.75 s late and aims where you *were* | Change direction abruptly |
-| Rogue Runner | Solo opponent: a bot runner with the multiplayer avatar, driven by the same movement model as players. Patrols its own part of the arena, spots you inside its view cone, holds 10–22 m, strafes, hops and fires short bursts of visible bolts. Only 2–4 may shoot at once, and it never walks off a ledge by itself. | Flank it (its aim turns smoothly), dodge the bolts, aim for the head |
-| Singularity Titan | Boss every 5th wave with 3 phases: orb barrage, gravity slam, sweeping beam (jump over it), summons and an arena pulse. Its core weak point opens on phase changes. | Read the telegraphs and shoot the core |
+| Rogue Runner | The opponent in Solo, Co-op and Training: a bot runner with the multiplayer avatar, driven by the same movement model as players. Patrols its own part of the arena (in co-op it advances on the reactor and turns on whoever shoots it), spots you inside its view cone, holds 10–22 m, strafes, hops and fires short bursts of visible bolts. Only 2–4 may shoot at once, and it never walks off a ledge by itself. | Flank it (its aim turns smoothly), dodge the bolts, aim for the head |
+
+The original creature archetypes (Drift Swarm, Anchor Warden, Phase Stalker, Rift Caster, Shard Runner, Mirror Drone, Singularity Titan) are still implemented in [`src/server/Enemy.js`](src/server/Enemy.js) but are no longer spawned by any mode.
 
 **World**
 - Three original arenas (Neon Rupture, The Folded Archive, Reactor Null) with multiple levels, colour-coded landmarks and signage, recovery (heal) zones, launch pads, quantum rings, phase barriers, destructible cover, energy channels and a periodic reactor pulse
@@ -130,7 +127,7 @@ Each mode starts in an arena with three always-available weapons. Survival unloc
 |---|---|
 | Move | `W` `A` `S` `D` |
 | Look | Mouse (pointer lock; click the game to capture) |
-| Fire / alt-fire (aim, or deflect with Phase Blades) | `LMB` / `RMB` |
+| Fire / aim (hold to zoom; deflect with Phase Blades) | `LMB` / `RMB` |
 | Jump · wall-jump · grapple launch | `Space` |
 | Sprint · air dash | `Shift` |
 | Slide | `C` or `Ctrl`* |
@@ -157,7 +154,7 @@ Touch devices get on-screen controls automatically. Play in landscape; starting 
 | Look | Drag anywhere on the right side |
 | Fire | Hold **Fire**. You can also drag on it to aim while firing. |
 | Jump · slide · air dash · grapple | **Jump**, **Slide**, **Dash**, **Hook** |
-| Aim / alt-fire | **Aim** (toggle) |
+| Aim and zoom / alt-fire | **Aim** (toggle) |
 | Reload · next weapon | **Reload**, **Swap** |
 | Phase Break · gravity well · melee · interact | **Phase**, **Well**, **Melee**, **Use** (the row under the health bars) |
 | Pause | The **II** button in the top-left corner |
@@ -171,16 +168,18 @@ The stick snaps to eight directions because the input protocol carries whole ste
 ## Game modes
 
 ### Solo Survival (offline)
-You fight **Rogue Runners**: bot runners with the same avatar as multiplayer, each coming out of its own rift at a different spawn point at least 18 m away, so a wave is spread across the arena rather than piled on you. They patrol until they see you (or you shoot them), and a runner left alone too long starts hunting you so a wave never stalls. Waves stay small (3, 4, 4, 5 runners, capped at 8 per wave and 6 alive at once). Every fifth wave the Singularity Titan arrives with a runner escort, at 60% of its co-op health, and elites appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks), and a Titan kill grants a bonus pick. From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
+You fight **Rogue Runners**: bot runners with the same avatar as multiplayer, each coming out of its own rift at a different spawn point at least 18 m away, so a wave is spread across the arena rather than piled on you. They patrol until they see you (or you shoot them), and a runner left alone too long starts hunting you so a wave never stalls. Waves stay small (3, 4, 4, 5 runners, capped at 8 per wave and 6 alive at once). Every fifth wave is an elite squad, and elites also appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks), and a Titan kill grants a bonus pick. From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
 
 ### Online Free-for-All (2–12 players)
-A warm-up lasts until a second runner joins, then a 10 s countdown starts the timed match (5 minutes by default). Kills, deaths, assists, score and streaks are all tracked server-side, with streak call-outs at 3, 5, 8 and 12. You respawn after 3 s with 2 s of spawn protection, which ends early if you attack. Environmental deaths credit the last attacker. The match ends with a results screen, and the next match starts automatically. Use a **room code** to play privately with friends.
+A warm-up lasts until a second runner joins, then a 10 s countdown starts the timed match (5 minutes by default). Kills, deaths, assists, score and streaks are all tracked server-side, with streak call-outs at 3, 5, 8 and 12. You respawn after 3 s with 2 s of spawn protection, which ends early if you attack. Environmental deaths credit the last attacker. The match ends with a results screen, and the next match starts automatically.
+
+**Rooms:** the Free-for-All screen lists every open room (code, arena, players, status) and refreshes every 3 s. **Create room** opens a new room that everyone can see and join; you can also join with a code, or **Quick match** into the busiest open room. The room code is shown in the HUD and the pause menu.
 
 ### Online Co-op Rift Defense (1–4 players)
-Defend the reactor in Reactor Null across 10 waves. Objective-focused enemies go for the reactor. A runner at 0 HP is **downed** and bleeds out over 20 s; teammates revive them by holding `E` nearby. Fallen runners return between waves, where everyone picks an upgrade. The team loses if the reactor is destroyed or the whole squad is down, and wins by sealing the rift after wave 10.
+Co-op rooms are private: **Create room** to get a five-letter code to share, or **Join** with a friend's code (a code is required). Defend the reactor in Reactor Null across 10 waves of Rogue Runner squads, sized to the team; they push the reactor and turn on whoever shoots them. A runner at 0 HP is **downed** and bleeds out over 20 s; teammates revive them by holding `E` nearby. Fallen runners return between waves, where everyone picks an upgrade. The team loses if the reactor is destroyed or the whole squad is down, and wins by sealing the rift after wave 10.
 
 ### Training Range (offline)
-Six target dummies (two of them moving) are placed along an automatically validated firing lane. You have every weapon, fast Pulse recharge and no damage taken. A telemetry panel shows FPS, latency, speed, vertical speed, acceleration, movement state, 3-second DPS, total damage, accuracy and sensitivity. An optional 12-step **movement tutorial** checks off techniques as you perform them. Press `E` to summon a practice swarm.
+Six target dummies (two of them moving) are placed along an automatically validated firing lane. You have every weapon, fast Pulse recharge and no damage taken. A telemetry panel shows FPS, latency, speed, vertical speed, acceleration, movement state, 3-second DPS, total damage, accuracy and sensitivity. An optional 12-step **movement tutorial** checks off techniques as you perform them. Press `E` to summon a harmless practice squad of three Rogue Runners.
 
 ---
 
