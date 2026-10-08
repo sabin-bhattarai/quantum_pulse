@@ -43,7 +43,7 @@ export const ENEMY_DEFS = Object.freeze([
   { type: 6, name: 'Singularity Titan', hp: 3600, radius: 3.4, speed: 3, accel: 4, mass: 20, heavy: true, boss: true, score: 5000, pulse: 30, hover: 9, damage: 14, weak: { y: 0, r: 1.25, f: 3.1 }, cost: 40 },
   { type: 7, name: 'Target Dummy', hp: 600, radius: 0.75, speed: 0, accel: 0, mass: 99, heavy: true, score: 0, pulse: 2, hover: 1.0, damage: 0, weak: { y: 0.95, r: 0.32, f: 0 }, cost: 0 },
   // Humanoid bot: moves with the player movement model; the weak point is the head.
-  { type: 8, name: 'Rogue Runner', hp: 70, radius: 0.62, speed: 0, accel: 0, mass: 1, light: true, humanoid: true, score: 150, pulse: 6, hover: ROGUE.CENTER, damage: 5, weak: { y: 0.78, r: 0.27, f: 0 }, cost: 3 },
+  { type: 8, name: 'Rogue Runner', hp: 70, radius: 0.62, speed: 0, accel: 0, mass: 1, light: true, humanoid: true, score: 150, pulse: 6, hover: ROGUE.CENTER, damage: 5, weak: { y: PLAYER.HEAD_CENTER - ROGUE.CENTER, r: PLAYER.HEAD_RADIUS, f: 0 }, cost: 3 },
 ]);
 
 /* Boids tuning (Drift Swarm). See updateSwarm for the explanation. */
