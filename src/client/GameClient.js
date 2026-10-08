@@ -996,7 +996,7 @@ export class GameClient {
     if (this.mode === MODES.SURVIVAL) objective = m.ph === 'wave' ? `${m.el} hostiles remain` : m.ph === 'upgrade' ? 'Choose an upgrade' : m.ph === 'over' ? '' : 'Rifts stabilising…';
     else if (this.mode === MODES.COOP) objective = m.ph === 'wave' ? `Defend the reactor · ${m.el} hostiles` : m.ph === 'intermission' ? 'Regroup — upgrades available' : m.ph === 'countdown' ? 'Waiting for the rift to open' : '';
     else if (this.mode === MODES.FFA) objective = m.ph === 'warmup' ? `Warm-up · waiting for players (${m.np}/${m.mn})` : m.ph === 'countdown' ? 'Match starting' : m.ph === 'active' ? 'Most points wins' : '';
-    else if (this.mode === MODES.TRAINING) objective = 'Press E to summon a practice swarm';
+    else if (this.mode === MODES.TRAINING) objective = 'Press E to summon a practice squad';
 
     const hs = Math.hypot(ms.vx, ms.vz);
     const lastInput = this.prediction.history[Math.max(0, this.seq - 1) % this.prediction.history.length].input;
