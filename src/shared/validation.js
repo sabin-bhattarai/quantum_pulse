@@ -81,7 +81,7 @@ export function sanitizeName(raw) {
  */
 export function validateHello(msg, opts = {}) {
   if (!isPlainObject(msg) || msg.t !== MSG.HELLO) return fail('not a hello');
-  if (!hasOnlyKeys(msg, ['t', 'v', 'name', 'mode', 'room', 'token', 'arena'])) return fail('unknown fields');
+  if (!hasOnlyKeys(msg, ['t', 'v', 'name', 'mode', 'room', 'token', 'arena', 'action'])) return fail('unknown fields');
   if (msg.v !== PROTOCOL_VERSION) return fail(`protocol mismatch (server ${PROTOCOL_VERSION})`);
   const allowedModes = opts.allowOffline ? Object.values(MODES) : [MODES.FFA, MODES.COOP];
   if (!allowedModes.includes(msg.mode)) return fail('invalid mode');
@@ -100,7 +100,13 @@ export function validateHello(msg, opts = {}) {
     if (!ARENA_IDS.includes(msg.arena)) return fail('invalid arena');
     arena = msg.arena;
   }
-  return ok({ name: sanitizeName(msg.name), mode: msg.mode, room, token, arena });
+  // create a room / join by code / quick match (FFA); omitted = join if a code is given, else quick
+  let action = room ? 'join' : 'quick';
+  if (msg.action !== undefined) {
+    if (!['create', 'join', 'quick'].includes(msg.action)) return fail('invalid action');
+    action = msg.action;
+  }
+  return ok({ name: sanitizeName(msg.name), mode: msg.mode, room, token, arena, action });
 }
 
 /**
