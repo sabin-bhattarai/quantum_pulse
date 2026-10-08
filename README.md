@@ -16,7 +16,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 | --- | --- | --- |
 | ![Neon Rupture](docs/images/neon-rupture.jpg) | ![The Folded Archive](docs/images/folded-archive.jpg) | ![Reactor Null](docs/images/reactor-null.jpg) |
 
-![Enemy line-up: Drift Swarm, Anchor Warden, Phase Stalker, Rift Caster, Shard Runner, Mirror Drone, Target Dummy, with the Singularity Titan behind](docs/images/enemies.jpg)
+![A Rogue Runner squad on a Neon Rupture terrace: Juno, the gold elite Ash, and Onyx, each with a red callsign tag](docs/images/runners.jpg)
 
 ---
 
@@ -168,7 +168,7 @@ The stick snaps to eight directions because the input protocol carries whole ste
 ## Game modes
 
 ### Solo Survival (offline)
-You fight **Rogue Runners**: bot runners with the same avatar as multiplayer, each coming out of its own rift at a different spawn point at least 18 m away, so a wave is spread across the arena rather than piled on you. They patrol until they see you (or you shoot them), and a runner left alone too long starts hunting you so a wave never stalls. Waves stay small (3, 4, 4, 5 runners, capped at 8 per wave and 6 alive at once). Every fifth wave is an elite squad, and elites also appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks), and a Titan kill grants a bonus pick. From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
+You fight **Rogue Runners**: bot runners with the same avatar as multiplayer, each coming out of its own rift at a different spawn point at least 18 m away, so a wave is spread across the arena rather than piled on you. They patrol until they see you (or you shoot them), and a runner left alone too long starts hunting you so a wave never stalls. Waves stay small (3, 4, 4, 5 runners, capped at 8 per wave and 6 alive at once). Every fifth wave is an elite squad, and elites also appear on waves 3, 8, 13 and so on. Between waves you choose one of three upgrades (stat boosts or weapon unlocks). From wave 3 the arena becomes unstable, with telegraphed random fractures. The run ends when you die. Results track score, wave, time, kills, accuracy, weak-point hits and maximum Pulse, and your best run per arena is saved in `localStorage`.
 
 ### Online Free-for-All (2–12 players)
 A warm-up lasts until a second runner joins, then a 10 s countdown starts the timed match (5 minutes by default). Kills, deaths, assists, score and streaks are all tracked server-side, with streak call-outs at 3, 5, 8 and 12. You respawn after 3 s with 2 s of spawn protection, which ends early if you attack. Environmental deaths credit the last attacker. The match ends with a results screen, and the next match starts automatically.
