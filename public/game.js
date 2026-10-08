@@ -45,6 +45,7 @@ const SCHEMA = {
   hudScale: { def: 1, min: 0.75, max: 1.4 },
   crosshairSize: { def: 1, min: 0.6, max: 2 },
   holdToGrapple: { def: false },
+  autoSprint: { def: true },
   stickTurn: { def: true },
 };
 
@@ -54,6 +55,8 @@ function enterFullscreen() {
   if (document.fullscreenElement || !el.requestFullscreen) return;
   el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
 }
+
+const BINDINGS_VERSION = 2;
 
 function storageGet(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
@@ -73,10 +76,13 @@ function loadSettings() {
     else if (typeof spec.def === 'number') s[k] = typeof v === 'number' && Number.isFinite(v) ? Math.min(spec.max, Math.max(spec.min, v)) : spec.def;
     else s[k] = typeof v === 'string' ? v.slice(0, 16) : spec.def;
   }
-  // Bindings: keep only known actions with string codes.
+  // Bindings: keep only known actions with string codes. Version 2 moved Shift from
+  // sprint/air-dash to zoom, so older saves keep their keys except for those two.
   s.bindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+  s.bindingsVersion = BINDINGS_VERSION;
   if (raw.bindings && typeof raw.bindings === 'object') {
     for (const a of Object.keys(DEFAULT_BINDINGS)) {
+      if (raw.bindingsVersion !== BINDINGS_VERSION && (a === 'sprint' || a === 'zoom')) continue;
       const list = raw.bindings[a];
       if (Array.isArray(list)) s.bindings[a] = list.slice(0, 2).map((c) => (typeof c === 'string' && c.length < 32 ? c : null));
     }
