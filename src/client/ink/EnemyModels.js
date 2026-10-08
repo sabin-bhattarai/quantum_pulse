@@ -17,6 +17,7 @@ import * as THREE from '/vendor/three/three.module.js';
 /** Base tints per archetype (multiplied with the body's vertex colours). */
 export const ENEMY_TINTS = Object.freeze({
   0: 0x8e5bd1, 1: 0x5f4a8f, 2: 0x3f2d63, 3: 0xb04ab8, 4: 0xd9822b, 5: 0x9fb7c9, 7: 0xd8c39a,
+  8: 0x5b3a8c, // Rogue Runner armour (drawn with the runner rig, not an instanced model)
 });
 export const ELITE_TINT = 0xe9b425;
 
