@@ -19,8 +19,8 @@ export const DEFAULT_BINDINGS = Object.freeze({
   back: ['KeyS', 'ArrowDown'],
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
-  jump: ['Space'],
-  sprint: ['ShiftLeft', 'ShiftRight'],
+  jump: ['Space'], // double-tap for a long jump (air dash)
+  sprint: [], // sprint is automatic (setting); bind a key here to sprint manually or air-dash
   slide: ['KeyC', 'ControlLeft'],
   grapple: ['KeyQ'],
   interact: ['KeyE'],
@@ -30,6 +30,7 @@ export const DEFAULT_BINDINGS = Object.freeze({
   pulse: ['KeyX'],
   fire: ['Mouse0'],
   alt: ['Mouse2'],
+  zoom: ['ShiftLeft', 'ShiftRight'],
   scoreboard: ['Tab'],
   weapon1: ['Digit1'],
   weapon2: ['Digit2'],
@@ -40,9 +41,9 @@ export const DEFAULT_BINDINGS = Object.freeze({
 });
 
 export const ACTION_LABELS = Object.freeze({
-  forward: 'Move forward', back: 'Move back', left: 'Strafe left', right: 'Strafe right', jump: 'Jump / wall-jump / launch',
-  sprint: 'Sprint / air dash', slide: 'Slide', grapple: 'Grapple', interact: 'Interact / revive', melee: 'Melee pulse',
-  reload: 'Reload', gravity: 'Gravity well', pulse: 'Phase Break', fire: 'Fire', alt: 'Aim / deflect', scoreboard: 'Scoreboard',
+  forward: 'Move forward', back: 'Move back', left: 'Strafe left', right: 'Strafe right', jump: 'Jump / wall-jump / launch (double-tap: long jump)',
+  sprint: 'Sprint / air dash (optional)', slide: 'Slide', grapple: 'Grapple', interact: 'Interact / revive', melee: 'Melee pulse',
+  reload: 'Reload', gravity: 'Gravity well', pulse: 'Phase Break', fire: 'Fire', alt: 'Aim (hold to zoom) / deflect', zoom: 'Zoom (tap to toggle)', scoreboard: 'Scoreboard',
   weapon1: 'Weapon 1', weapon2: 'Weapon 2', weapon3: 'Weapon 3', weapon4: 'Weapon 4', weapon5: 'Weapon 5', weapon6: 'Weapon 6',
 });
 
@@ -64,6 +65,9 @@ export function detectTouch() {
   if (forced === '1' || forced === '0') return forced === '1';
   return !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches;
 }
+
+/** Two jump presses closer than this make a long jump (an air dash). */
+const DOUBLE_TAP_MS = 300;
 
 /** Touch steering: mouse-pixels per second of look at full sideways stick (~125 deg/s at sensitivity 1). */
 const STICK_TURN_RATE = 1000;
@@ -95,6 +99,8 @@ export class InputManager {
     this.extraPressBits = 0;
     this.touch = detectTouch();
     this.stick = { mx: 0, mz: 0, sprint: false, turn: 0 };
+    this.zoomToggled = false; // tap Zoom (Shift) to toggle; RMB zooms while held
+    this.lastJumpAt = 0;
     this.lastLookAt = performance.now();
     this.rebuildBindings();
     this.bind();
@@ -204,9 +210,24 @@ export class InputManager {
     // Space would "click" whichever menu button last had focus.
     if ((this.locked || this.enabled) && e && code !== 'Escape') e.preventDefault();
     for (const a of actions) {
-      if (!this.held.has(a)) this.pressedActions.add(a);
+      if (!this.held.has(a)) { this.pressedActions.add(a); this.onPress(a); }
       this.held.add(a);
       this.emit('action', a, true);
+    }
+  }
+
+  /**
+   * A fresh press of an action. Zoom toggles; a second jump within
+   * DOUBLE_TAP_MS adds an air-dash press, which is the long jump.
+   */
+  onPress(a) {
+    if (!this.locked && !this.enabled) return;
+    if (a === 'zoom') {
+      this.zoomToggled = !this.zoomToggled;
+    } else if (a === 'jump') {
+      const now = performance.now();
+      if (now - this.lastJumpAt < DOUBLE_TAP_MS) { this.extraPressBits |= BTN.DASH_P; this.lastJumpAt = 0; }
+      else this.lastJumpAt = now;
     }
   }
 
@@ -222,7 +243,7 @@ export class InputManager {
   /* ---- touch controls feed actions through these (same semantics as a key) ---- */
 
   pressAction(action) {
-    if (!this.held.has(action)) this.pressedActions.add(action);
+    if (!this.held.has(action)) { this.pressedActions.add(action); this.onPress(action); }
     this.held.add(action);
     this.emit('action', action, true);
   }
@@ -255,6 +276,7 @@ export class InputManager {
   releaseAll() {
     for (const a of this.held) this.emit('action', a, false);
     this.held.clear();
+    this.zoomToggled = false;
   }
 
   isHeld(action) {
@@ -307,6 +329,8 @@ export class InputManager {
       mz = this.stick.mz;
       if (this.stick.sprint) buttons |= BTN.SPRINT;
     }
+    // Sprint is automatic when running forward (setting "Always sprint").
+    if (mz > 0 && this.settings.autoSprint !== false) buttons |= BTN.SPRINT;
     return { mx, mz, buttons, weaponSelect };
   }
 }
