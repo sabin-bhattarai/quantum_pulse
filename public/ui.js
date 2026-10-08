@@ -521,6 +521,14 @@ export class UI {
     (extra.canReplay ? $('#btn-play-again') : $('#results [data-action="leave"]')).focus({ preventScroll: true });
   }
 
+  /** Sniper scope overlay (Vector Lance zoom); cheap to call every frame. */
+  setScope(on) {
+    if (this.scoped === on) return;
+    this.scoped = on;
+    $('#scope').hidden = !on;
+    document.body.classList.toggle('scoped', on);
+  }
+
   hideResults() {
     $('#results').hidden = true;
   }
