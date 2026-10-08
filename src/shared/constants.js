@@ -121,8 +121,19 @@ export const PLAYER = Object.freeze({
   HEIGHT: 1.8,
   EYE_HEIGHT: 1.62,
   SLIDE_EYE_HEIGHT: 1.0,
-  HEAD_RADIUS: 0.3,
-  HEAD_CENTER: 1.58,
+  /*
+   * Humanoid hit shape (players and Rogue Runners), measured from the runner
+   * rig at RIG_SCALE so what you see is what the server tests: a vertical
+   * body capsule plus a head sphere, both lowered by SLIDE_DROP while sliding.
+   * The head is a little larger than the drawn helmet so clean aim is rewarded.
+   */
+  RIG_SCALE: 0.85,
+  HEAD_RADIUS: 0.28,
+  HEAD_CENTER: 1.62,
+  BODY_BOTTOM: 0.22,
+  BODY_TOP: 1.3,
+  BODY_RADIUS: 0.4,
+  SLIDE_DROP: 0.4,
 
   MAX_HEALTH: 100,
   MAX_SHIELD: 50,
