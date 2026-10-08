@@ -105,6 +105,7 @@ export class GameClient {
     this.pendingShots = [];
     this.vm = { weapon: 0, bob: 0, bobAmp: 0, sway: { x: 0, y: 0 }, recoil: 0, reload: 0, switch: 0, swing: 0, charge: 0, visible: true, muzzle: 0, muzzleColor: null, ads: 0 };
     this.zoom = 1; // current aim-down-sights scale of tan(FOV/2); 1 = hip fire
+    this.lastHeadshotFx = -1;
 
     // feedback state
     this.post = { damage: 0, phase: 0, lowHealth: 0, pulse: 0, flash: 0, reactor: 1, speed: 0 };
@@ -216,7 +217,7 @@ export class GameClient {
         if (shooter === me) {
           this.ui.hitmarker(head ? 'head' : '');
           A.play(head ? 'headshot' : 'hit', { ui: true, throttle: 0.04 });
-          if (head) R.headshot(x, y, z);
+          if (head && this.time - this.lastHeadshotFx > 0.35) { R.headshot(x, y, z); this.lastHeadshotFx = this.time; }
           if (this.mode === MODES.TRAINING) this.damageLog.push([this.time, dmg]);
         } else if (!isEnemy && target === me) {
           // damage taken handled by DAMAGED
@@ -719,22 +720,24 @@ export class GameClient {
     this.recoilKick = (def.recoil || 0.01) * (this.settings.reducedFlashes ? 0.5 : 1);
     if (def.type === WeaponType.PROJECTILE) return; // the server orb appears in the next snapshot
     const color = _color(R, def.color);
-    // muzzle origin approximated in world space
+    // Own tracers start ~1.2 m out from the gun side (centred when aiming) and are faint,
+    // so rapid fire never paints a bright line over the crosshair.
+    const side = 0.22 * (1 - this.vm.ads);
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
-    const ox = m.x + d.x * 0.6 + rx * 0.22, oy = eyeYv - 0.18 + d.y * 0.6, oz = m.z + d.z * 0.6 + rz * 0.22;
+    const ox = m.x + d.x * 1.2 + rx * side, oy = eyeYv - 0.2 + d.y * 1.2, oz = m.z + d.z * 1.2 + rz * side;
     if (def.type === WeaponType.PELLETS) {
       for (let i = 0; i < 6; i++) {
         const sx = d.x + (Math.random() - 0.5) * def.spreadBase * 2, sy = d.y + (Math.random() - 0.5) * def.spreadBase * 2, sz = d.z + (Math.random() - 0.5) * def.spreadBase * 2;
-        R.tracer(ox, oy, oz, ox + sx * 6, oy + sy * 6, oz + sz * 6, color, 0.03, 0.08);
+        R.tracer(ox, oy, oz, ox + sx * 6, oy + sy * 6, oz + sz * 6, color, 0.025, 0.08, 0.6);
       }
       return;
     }
     const hit = raycastArena(this.env, m.x, eyeYv, m.z, d.x, d.y, d.z, def.range, m.phaseTimer > 0, false);
     const t = hit.t >= 0 ? hit.t : def.range;
     const ex = m.x + d.x * t, ey = eyeYv + d.y * t, ez = m.z + d.z * t;
-    const width = def.type === WeaponType.CHARGE ? 0.06 + charge * 0.12 : 0.03;
+    const width = def.type === WeaponType.CHARGE ? 0.05 + charge * 0.1 : 0.02;
     const beamColor = def.type === WeaponType.CHARGE ? (charge >= 0.99 ? P.amber : charge > 0.5 ? P.magenta : P.violet) : color;
-    R.tracer(ox, oy, oz, ex, ey, ez, beamColor, width, def.type === WeaponType.CHARGE ? 0.35 : 0.09);
+    R.tracer(ox, oy, oz, ex, ey, ez, beamColor, width, def.type === WeaponType.CHARGE ? 0.35 : 0.09, def.type === WeaponType.CHARGE ? 0.9 : 0.55);
     if (hit.t >= 0) R.impact(ex, ey, ez, beamColor, def.type === WeaponType.CHARGE ? 18 : 5, 5);
     if (def.type === WeaponType.CHARGE) this.renderer.shake.add(0.1 + charge * 0.2);
   }
