@@ -16,6 +16,7 @@ import { ParticleSystem } from '/client/Particles.js';
 import { RibbonPool, RingPool, FractureFx, ScreenShake, RingStyle } from '/client/Effects.js';
 import { WEAPONS } from '/shared/weapons.js';
 import { PF, EF, PK, PICKUP } from '/shared/protocol.js';
+import { ROGUE, rogueName, MoveState } from '/shared/constants.js';
 import { inkMaterial, flatMaterial, hullOutline, INK_UNIFORMS, LIGHT } from '/client/ink/InkMaterials.js';
 import { InkPost } from '/client/ink/InkPost.js';
 import { buildWorld, signTexture } from '/client/ink/WorldBuilder.js';
@@ -32,6 +33,8 @@ export const PALETTES = Object.freeze({
 });
 
 /** Team / slot colours: bold print inks that read against concrete and sky. */
+/** Rogue Runner tag colour (red = hostile); armour comes from ENEMY_TINTS[8]. */
+const ROGUE_TAG = 0xe63b2e;
 const SLOT_COLORS = [0xe0473a, 0x2f6fd0, 0xf2c230, 0x2a9d8f, 0xf07f2a, 0x7b4fc9, 0xe86fae, 0x8cc63f, 0x3ec7d6, 0x9a6a43, 0xf4efe1, 0x5b6170];
 
 const QUALITY = {
@@ -148,6 +151,7 @@ export class Renderer {
     this.buildProjectileMeshes();
     this.buildBursts();
     this.rigs = [];
+    this.rogueRigs = [];
     this.buildViewmodels();
 
     this.applySettings();
@@ -318,6 +322,41 @@ export class Renderer {
     for (; i < this.rigs.length; i++) if (this.rigs[i]) this.rigs[i].root.visible = false;
   }
 
+  /**
+   * Rogue Runners use the same rig as multiplayer runners, in rift violet
+   * (gold when elite), with a red callsign tag. Animation comes from the
+   * movement state and aim pitch carried in their snapshot row.
+   */
+  drawRogue(i, id, o, flags, hitFlash) {
+    let r = this.rogueRigs[i];
+    if (!r) {
+      r = new RunnerRig(ENEMY_TINTS[8], { shadows: this.q.shadows });
+      Object.assign(r, { id: -1, lastX: 0, lastZ: 0, speed: 0, forward: 0, name: '', tag: null, tint: -1 });
+      this.scene.add(r.root);
+      this.rogueRigs[i] = r;
+    }
+    const raw = o.raw;
+    const dt = Math.max(1e-3, this.frameDt || 1 / 60);
+    if (r.id !== id) { r.id = id; r.lastX = o.x; r.lastZ = o.z; r.speed = 0; r.forward = 0; }
+    r.root.visible = true;
+    const dx = o.x - r.lastX, dz = o.z - r.lastZ;
+    r.lastX = o.x; r.lastZ = o.z;
+    if (Math.hypot(dx, dz) < 3) {
+      const k = Math.min(1, dt * 12);
+      r.speed += (Math.min(16, Math.hypot(dx, dz) / dt) - r.speed) * k;
+      r.forward += (-(dx * Math.sin(o.yaw) + dz * Math.cos(o.yaw)) / dt - r.forward) * k;
+    }
+    r.root.position.set(o.x, o.y - ROGUE.CENTER, o.z);
+    r.root.rotation.y = o.yaw;
+    const flash = this.time - (hitFlash.get(id) || -10) < 0.07;
+    const tint = flash ? 0xffffff : flags & EF.ELITE ? ELITE_TINT : ENEMY_TINTS[8];
+    if (r.tint !== tint) { r.setTeamColor(tint); r.tint = tint; }
+    const state = flags & EF.STUNNED ? MoveState.STUNNED : raw[9] ?? MoveState.GROUNDED;
+    r.animate(dt, { speed: r.speed, forward: r.forward, state, pitch: raw[10] ?? 0, downed: false, grappling: false, sliding: state === MoveState.SLIDING });
+    this.setNameTag(r, rogueName(id), ROGUE_TAG);
+    r.tag.visible = Math.hypot(o.x - this.camera.position.x, o.z - this.camera.position.z) < 45;
+  }
+
   /** Multi-segment animated rope / tether ribbon (ink-outlined). */
   rope(ax, ay, az, bx, by, bz, color, width, wave = 0.15, alpha = 1) {
     const segs = 10;
@@ -404,10 +443,12 @@ export class Renderer {
     const counts = [0, 0, 0, 0, 0, 0, 0, 0];
     let shields = 0;
     let titanSeen = false;
+    let rogues = 0;
     for (const [id, o] of enemies) {
       const r = o.raw;
       const type = r[1];
       const flags = r[8];
+      if (type === 8) { this.drawRogue(rogues++, id, o, flags, hitFlash); continue; }
       if (type === 6) {
         titanSeen = true;
         this.titan.visible = true;
@@ -449,6 +490,7 @@ export class Renderer {
       if (type === 2 && telegraph) this.particles.spawn(o.x + (Math.random() - 0.5), o.y + (Math.random() - 0.5) * 2, o.z + (Math.random() - 0.5), 0, 1, 0, P.violet, 4, 0.4);
     }
     if (!titanSeen) this.titan.visible = false;
+    for (let i = rogues; i < this.rogueRigs.length; i++) this.rogueRigs[i].root.visible = false;
     for (let t = 0; t < this.enemyMeshes.length; t++) {
       const em = this.enemyMeshes[t];
       if (!em) continue;
