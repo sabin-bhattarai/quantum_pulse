@@ -206,6 +206,7 @@ export class GameClient {
         if (shooter === me) {
           this.ui.hitmarker(head ? 'head' : '');
           A.play(head ? 'headshot' : 'hit', { ui: true, throttle: 0.04 });
+          if (head) R.headshot(x, y, z);
           if (this.mode === MODES.TRAINING) this.damageLog.push([this.time, dmg]);
         } else if (!isEnemy && target === me) {
           // damage taken handled by DAMAGED
