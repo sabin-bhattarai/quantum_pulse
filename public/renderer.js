@@ -719,8 +719,9 @@ export class Renderer {
     if (!cur) return;
     const g = this.vmRoot;
     const lower = vm.reload * 0.35 + vm.switch * 0.5;
-    g.position.set(0.27 + vm.sway.x + Math.cos(vm.bob * 2) * 0.008 * vm.bobAmp, -0.27 - lower * 0.4 + Math.abs(Math.sin(vm.bob)) * 0.012 * vm.bobAmp + vm.sway.y, -0.62 + vm.recoil * 0.1);
-    g.rotation.set(vm.recoil * 0.35 + lower * 0.9, 0.07 + vm.sway.x * 2, vm.reload * 0.5);
+    const ads = vm.ads || 0; // aim down sights: the gun slides to the centre line
+    g.position.set(0.27 * (1 - ads) + vm.sway.x + Math.cos(vm.bob * 2) * 0.008 * vm.bobAmp, -0.27 - ads * 0.02 - lower * 0.4 + Math.abs(Math.sin(vm.bob)) * 0.012 * vm.bobAmp + vm.sway.y, -0.62 + ads * 0.04 + vm.recoil * 0.1);
+    g.rotation.set(vm.recoil * 0.35 + lower * 0.9, 0.07 * (1 - ads) + vm.sway.x * 2, vm.reload * 0.5);
     if (vm.weapon === 4) {
       cur.grp.rotation.set(-vm.swing * 1.2, vm.swing * 0.8, -vm.swing * 0.6);
       if (cur.left) cur.left.rotation.set(vm.swing * 0.4, 0, 0);
