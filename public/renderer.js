@@ -532,11 +532,15 @@ export class Renderer {
    */
   drawProjectiles(projectiles, localPhased) {
     const P = this.palette;
+    const cam = this.camera.position;
     let n = 0;
     for (const [, o] of projectiles) {
       const r = o.raw;
       const kind = r[1];
       const hostile = kind === PK.ENEMY_BOLT || kind === PK.HEAVY_ORB || kind === PK.TITAN_ORB;
+      // A bolt arriving at your face is extrapolated into the camera before the server removes it;
+      // skip the last metre so it never fills the screen.
+      if (hostile && (o.x - cam.x) ** 2 + (o.y - cam.y) ** 2 + (o.z - cam.z) ** 2 < 1.2 * 1.2) continue;
       const size = kind === PK.PELLET ? 0.1 : kind === PK.ORB ? 0.5 : kind === PK.HEAVY_ORB ? 0.5 : kind === PK.TITAN_ORB ? 0.6 : kind === PK.DEFLECTED ? 0.3 : 0.28;
       const color = kind === PK.PELLET ? P.magenta : kind === PK.ORB ? P.mint : kind === PK.DEFLECTED ? P.amber : hostile ? P.enemy : P.cyan;
       const ghosts = hostile && localPhased ? 4 : 1;
@@ -753,6 +757,10 @@ export class Renderer {
   }
 
   explosion(x, y, z, radius, color) {
+    // Small impacts on or right next to the player (an enemy bolt hitting you) would draw a
+    // 2 m comic star inside the camera; skip them. The damage edges and shake already show the hit.
+    const cam = this.camera.position;
+    if (radius < 2 && (x - cam.x) ** 2 + (y - cam.y) ** 2 + (z - cam.z) ** 2 < 2.5 * 2.5) return;
     this.particles.burst(x, y, z, Math.round(18 + radius * 8), radius * 4, color, 8, 0.7, { gravity: 4, drag: 2, up: 1 });
     this.rings.add({ x, y, z, r0: 0.3, r1: radius * 1.2, life: 0.45, color, thickness: 0.22, face: 'camera' });
     this.rings.add({ x, y: y - 0.2, z, r0: 0.3, r1: radius * 1.5, life: 0.6, color, thickness: 0.12, face: 'up' });
