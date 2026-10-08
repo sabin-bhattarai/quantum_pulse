@@ -45,6 +45,7 @@ const SCHEMA = {
   hudScale: { def: 1, min: 0.75, max: 1.4 },
   crosshairSize: { def: 1, min: 0.6, max: 2 },
   holdToGrapple: { def: false },
+  stickTurn: { def: true },
 };
 
 /** Phones: play fullscreen in landscape where the browser allows it (Android Chrome; iPhone Safari ignores both). */
