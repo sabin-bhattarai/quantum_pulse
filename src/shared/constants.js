@@ -352,7 +352,6 @@ export const ROGUE = Object.freeze({
   SPAWN_MIN_DIST: 18, // never spawn this close to a player
   MAX_ALIVE: 6,
   MAX_PER_WAVE: 8,
-  SOLO_TITAN_HP: 0.6,
   NAMES: Object.freeze(['Vex', 'Jolt', 'Kestrel', 'Rook', 'Sable', 'Pike', 'Wren', 'Brick', 'Mako', 'Juno', 'Ash', 'Onyx', 'Riot', 'Zeal', 'Fable', 'Quill']),
 });
 

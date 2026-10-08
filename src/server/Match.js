@@ -130,6 +130,7 @@ class BaseRules {
       hp: (1 + 0.075 * (n - 1)) * (1 + 0.32 * (players - 1)),
       damage: 1 + 0.05 * (n - 1),
       speed: 1 + Math.min(0.25, 0.02 * (n - 1)),
+      shooters: Math.min(5, 1 + players + (n >= 6 ? 1 : 0)), // Rogue Runners allowed to fire at once
     };
   }
 
@@ -145,12 +146,54 @@ class BaseRules {
     this.spawnTimer = entry.type === EnemyType.TITAN ? 3 : SURVIVAL.SPAWN_INTERVAL;
   }
 
-  /** Hook: hold an entry back (e.g. too many of its kind alive). */
-  canSpawn() { return true; }
+  /** Hold an entry back while the arena already has enough runners alive. */
+  canSpawn(entry) {
+    return entry.type !== EnemyType.ROGUE || this.world.enemies.countType(EnemyType.ROGUE) < this.maxAliveRogues();
+  }
 
-  /** Hook: place one queued entry in the arena. */
+  maxAliveRogues() { return ROGUE.MAX_ALIVE; }
+
+  /** Place one queued entry in the arena. */
   spawnEntry(entry, opts) {
-    this.spawnAtRift(entry.type, entry.count, opts);
+    if (entry.type === EnemyType.ROGUE) this.spawnRogue(opts);
+    else this.spawnAtRift(entry.type, entry.count, opts);
+  }
+
+  /**
+   * One Rogue Runner at the spawn point that best spreads the wave out: at
+   * least SPAWN_MIN_DIST from every player, as far as possible from the other
+   * runners' home points, with a little randomness.
+   */
+  spawnRogue(opts) {
+    const w = this.world;
+    const homes = w.enemies.active.filter((e) => e.move);
+    let best = null, bestScore = -Infinity;
+    for (const s of w.arena.spawns) {
+      let dp = Infinity;
+      for (const p of w.activePlayers) if (p.alive) dp = Math.min(dp, Math.hypot(p.x - s.x, p.z - s.z));
+      let dr = 40;
+      for (const e of homes) dr = Math.min(dr, Math.hypot(e.homeX - s.x, e.homeZ - s.z));
+      const score = (dp < ROGUE.SPAWN_MIN_DIST ? -1000 + dp : 0) + dr + w.rng() * 6;
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+    if (!best) return;
+    w.emit(EV.RIFT, best.x, best.y + 1, best.z);
+    w.enemies.spawn(EnemyType.ROGUE, best.x, best.y, best.z, { ...opts, yaw: Math.atan2(best.x, best.z) });
+  }
+
+  /**
+   * Runner squad for wave n: `count` Rogue Runners, the first `elites` of them
+   * elite. Every fifth wave is an elite squad (there are no flying bosses).
+   */
+  runnerWave(n, count) {
+    const isElite = n % SURVIVAL.BOSS_EVERY === 0 || n % SURVIVAL.ELITE_WAVES_MOD === SURVIVAL.ELITE_WAVE_OFFSET;
+    let elites = isElite ? 1 + Math.floor(n / 5) : 0;
+    const queue = [];
+    for (let i = 0; i < count; i++) {
+      queue.push({ type: EnemyType.ROGUE, count: 1, elite: elites > 0 });
+      elites--;
+    }
+    return { queue, isBoss: false, isElite };
   }
 
   /** Arena instability: telegraphed random fractures that ramp up with waves. */
@@ -188,24 +231,14 @@ class BaseRules {
 /* ------------------------------------------------------------------------ */
 /**
  * Solo waves are fought against Rogue Runners: bots that use the player
- * movement model and the multiplayer avatar. Each one comes out of its own
- * rift at a different spawn point, away from the player, so a wave is spread
- * across the arena. The Singularity Titan still leads every fifth wave.
+ * movement model and the multiplayer avatar, all on foot. Each one comes out
+ * of its own rift at a different spawn point, away from the player, so a wave
+ * is spread across the arena. Every fifth wave is an elite squad.
  */
 class SurvivalRules extends BaseRules {
   composeWave(n) {
-    const isBoss = n % SURVIVAL.BOSS_EVERY === 0;
-    const isElite = n % SURVIVAL.ELITE_WAVES_MOD === SURVIVAL.ELITE_WAVE_OFFSET;
-    // 3, 4, 4, 5 | boss + 2 | 6, 6, 7, 7 | boss + 3 | ... capped at MAX_PER_WAVE
-    const runners = isBoss ? 2 + Math.floor(n / 10) : Math.min(ROGUE.MAX_PER_WAVE, 2 + Math.ceil(n * 0.55));
-    const queue = [];
-    if (isBoss) queue.push({ type: EnemyType.TITAN, count: 1, elite: false });
-    let elites = isElite ? 1 + Math.floor(n / 10) : 0;
-    for (let i = 0; i < runners; i++) {
-      queue.push({ type: EnemyType.ROGUE, count: 1, elite: elites > 0 });
-      elites--;
-    }
-    return { queue, isBoss, isElite };
+    // 3, 4, 4, 5, 5, 6, 6, 7, 7, 8 ... capped at MAX_PER_WAVE
+    return this.runnerWave(n, Math.min(ROGUE.MAX_PER_WAVE, 2 + Math.ceil(n * 0.55)));
   }
 
   difficultyFor(n) {
@@ -215,38 +248,6 @@ class SurvivalRules extends BaseRules {
       speed: 1,
       shooters: n < 4 ? 2 : n < 8 ? 3 : 4, // Rogue Runners allowed to fire at once
     };
-  }
-
-  canSpawn(entry) {
-    return entry.type !== EnemyType.ROGUE || this.world.enemies.countType(EnemyType.ROGUE) < ROGUE.MAX_ALIVE;
-  }
-
-  spawnEntry(entry, opts) {
-    if (entry.type === EnemyType.ROGUE) { this.spawnRogue(opts); return; }
-    if (entry.type === EnemyType.TITAN) opts = { ...opts, hpScale: opts.hpScale * ROGUE.SOLO_TITAN_HP };
-    this.spawnAtRift(entry.type, entry.count, opts);
-  }
-
-  /**
-   * One Rogue Runner at the spawn point that best spreads the wave out: at
-   * least SPAWN_MIN_DIST from every player, as far as possible from the other
-   * runners' home points, with a little randomness.
-   */
-  spawnRogue(opts) {
-    const w = this.world;
-    const homes = w.enemies.active.filter((e) => e.move);
-    let best = null, bestScore = -Infinity;
-    for (const s of w.arena.spawns) {
-      let dp = Infinity;
-      for (const p of w.activePlayers) if (p.alive) dp = Math.min(dp, Math.hypot(p.x - s.x, p.z - s.z));
-      let dr = 40;
-      for (const e of homes) dr = Math.min(dr, Math.hypot(e.homeX - s.x, e.homeZ - s.z));
-      const score = (dp < ROGUE.SPAWN_MIN_DIST ? -1000 + dp : 0) + dr + w.rng() * 6;
-      if (score > bestScore) { bestScore = score; best = s; }
-    }
-    if (!best) return;
-    w.emit(EV.RIFT, best.x, best.y + 1, best.z);
-    w.enemies.spawn(EnemyType.ROGUE, best.x, best.y, best.z, { ...opts, yaw: Math.atan2(best.x, best.z) });
   }
 
   start() {
@@ -431,13 +432,18 @@ class TrainingRules extends BaseRules {
     }
   }
 
-  /** E spawns a practice swarm pack (bounded). */
+  /** E summons a harmless practice squad of three Rogue Runners ahead of the player (bounded). */
   onInteract(p) {
     const w = this.world;
-    if (w.enemies.countType(EnemyType.SWARM) >= 20) return true;
-    const x = p.x - Math.sin(p.move.yaw) * 18, z = p.z - Math.cos(p.move.yaw) * 18;
-    w.emit(EV.RIFT, x, p.y + 4, z);
-    for (let i = 0; i < 5; i++) w.enemies.spawn(EnemyType.SWARM, x + i * 0.8, p.y + 4, z, { hpScale: 1, damageScale: 0 });
+    if (w.enemies.countType(EnemyType.ROGUE) >= ROGUE.MAX_ALIVE) return true;
+    const fx = -Math.sin(p.move.yaw), fz = -Math.cos(p.move.yaw);
+    for (let i = -1; i <= 1; i++) {
+      const x = p.x + fx * 16 - fz * i * 3, z = p.z + fz * 16 + fx * i * 3;
+      const y = w.enemies.groundAt(x, z, p.y + 3);
+      if (y === null || Math.abs(y - p.y) > 3) continue; // only on solid floor near the player's level
+      w.emit(EV.RIFT, x, y + 1, z);
+      w.enemies.spawn(EnemyType.ROGUE, x, y, z, { hpScale: 1, damageScale: 0, yaw: Math.atan2(x - p.x, z - p.z) });
+    }
     return true;
   }
 
@@ -583,6 +589,9 @@ class FFARules extends BaseRules {
 /* Online Co-op Rift Defense                                                 */
 /* ------------------------------------------------------------------------ */
 class CoopRules extends BaseRules {
+  /** A bigger squad can face a few more runners at once. */
+  maxAliveRogues() { return ROGUE.MAX_ALIVE + Math.max(0, this.activeCount() - 1); }
+
   start() {
     this.phase = 'countdown';
     this.timer = 8;
@@ -650,7 +659,7 @@ class CoopRules extends BaseRules {
     this.wave = n;
     const players = Math.max(1, this.activeCount());
     w.difficulty = this.difficultyFor(n, players);
-    const { queue, isBoss, isElite } = this.composeWave(n, 0.75 + 0.3 * players);
+    const { queue, isBoss, isElite } = this.runnerWave(n, Math.min(ROGUE.MAX_PER_WAVE + 4, Math.round((2 + n * 0.6) * (0.75 + 0.3 * players))));
     this.spawnQueue = queue;
     this.spawnTimer = 0.5;
     this.phase = 'wave';
