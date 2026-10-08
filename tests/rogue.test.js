@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../src/server/Room.js';
 import { MODES, SIM, ROGUE, PLAYER } from '../src/shared/constants.js';
-import { EnemyType, ENEMY_DEFS } from '../src/server/Enemy.js';
+import { EnemyType } from '../src/server/Enemy.js';
 
 const sink = () => ({ send() {}, snapshot() {} });
 
@@ -39,15 +39,33 @@ test('solo waves are Rogue Runners spread over different spawn points, away from
   for (const e of list) assert.ok(Math.hypot(e.homeX - p.x, e.homeZ - p.z) >= ROGUE.SPAWN_MIN_DIST);
 });
 
-test('every fifth solo wave is the Titan with a runner escort, at reduced health', () => {
+test('every fifth solo wave is an elite runner squad; nothing flies', () => {
   const { world } = soloRoom();
-  const { queue, isBoss } = world.rules.composeWave(5);
-  assert.ok(isBoss);
-  assert.equal(queue[0].type, EnemyType.TITAN);
-  assert.ok(queue.slice(1).every((q) => q.type === EnemyType.ROGUE) && queue.length === 3);
-  world.rules.spawnEntry(queue[0], { hpScale: 1, damageScale: 1 });
-  const titan = world.enemies.active.find((e) => e.type === EnemyType.TITAN);
-  assert.equal(titan.maxHp, ENEMY_DEFS[EnemyType.TITAN].hp * ROGUE.SOLO_TITAN_HP);
+  const { queue, isBoss, isElite } = world.rules.composeWave(5);
+  assert.ok(!isBoss && isElite);
+  assert.ok(queue.every((q) => q.type === EnemyType.ROGUE), 'runners only');
+  assert.ok(queue.filter((q) => q.elite).length >= 2, 'with elites');
+  for (let n = 1; n <= 20; n++) assert.ok(world.rules.composeWave(n).queue.every((q) => q.type === EnemyType.ROGUE));
+});
+
+test('co-op waves are runner squads that push the reactor and never fly off the map', () => {
+  const room = new Room({ id: 'c', mode: MODES.COOP, seed: 5 });
+  const a = room.join({ name: 'A', token: null }, sink()).player;
+  const w = room.world;
+  const applyDamage = w.applyDamage.bind(w);
+  w.applyDamage = (t, amount, src, opts) => (t === a ? undefined : applyDamage(t, amount, src, opts));
+  let falls = 0;
+  const kill = w.killEnemy.bind(w);
+  w.killEnemy = (e, k, o = {}) => { if (o.environmental) falls++; kill(e, k, o); };
+  let seq = 0, seenTypes = new Set();
+  for (let i = 0; i < SIM.TICK_RATE * 60; i++) {
+    room.handle(a.id, { t: 'in', i: [[seq++, 0, 0, 0, 0, 0, 0, w.tick]] });
+    room.tick();
+    for (const e of w.enemies.active) seenTypes.add(e.type);
+  }
+  assert.deepEqual([...seenTypes], [EnemyType.ROGUE], 'only Rogue Runners in co-op');
+  assert.ok(w.reactor.hp < w.reactor.maxHp, 'runners attack the reactor');
+  assert.equal(falls, 0);
 });
 
 test('wave sizes stay small and capped', () => {
