@@ -302,6 +302,17 @@ kbd {
 .mate.downed { background: var(--signal); color: var(--paper); animation: blink 0.8s infinite; }
 
 /* crosshair: cream with ink outline so it reads on any background */
+/* Vector Lance scope: an inked ring with thin cross-hairs and a red centre dot. */
+.scope { position: absolute; inset: 0; --sr: min(36vh, 36vw);
+  background: radial-gradient(circle at center, transparent 0 var(--sr), var(--ink) calc(var(--sr) + 1px)); }
+.scope::before { content: ""; position: absolute; left: 50%; top: 50%; width: calc(var(--sr) * 2); height: calc(var(--sr) * 2); transform: translate(-50%, -50%);
+  border-radius: 50%; border: 6px solid var(--ink); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 60px rgba(22, 19, 15, 0.45); }
+.scope::after { content: ""; position: absolute; left: 50%; top: 50%; width: calc(var(--sr) * 2); height: calc(var(--sr) * 2); transform: translate(-50%, -50%); border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--signal) 0 3px, transparent 4px),
+    linear-gradient(var(--ink), var(--ink)) center / 2px 100% no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center / 100% 2px no-repeat; opacity: 0.85; }
+body.scoped .crosshair span { opacity: 0; }
 .crosshair { left: 50%; top: 50%; width: 0; height: 0; --gap: 6px; --len: 8px; --ch-scale: 1; transform: scale(var(--ch-scale)); }
 .crosshair span { position: absolute; background: var(--paper); box-shadow: 0 0 0 1.5px var(--ink); transition: transform 0.05s linear; }
 .ch-l, .ch-r { width: var(--len); height: 3px; top: -1.5px; }
