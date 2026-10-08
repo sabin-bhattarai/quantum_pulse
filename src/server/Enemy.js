@@ -43,7 +43,7 @@ export const ENEMY_DEFS = Object.freeze([
   { type: 6, name: 'Singularity Titan', hp: 3600, radius: 3.4, speed: 3, accel: 4, mass: 20, heavy: true, boss: true, score: 5000, pulse: 30, hover: 9, damage: 14, weak: { y: 0, r: 1.25, f: 3.1 }, cost: 40 },
   { type: 7, name: 'Target Dummy', hp: 600, radius: 0.75, speed: 0, accel: 0, mass: 99, heavy: true, score: 0, pulse: 2, hover: 1.0, damage: 0, weak: { y: 0.95, r: 0.32, f: 0 }, cost: 0 },
   // Humanoid bot: moves with the player movement model; the weak point is the head.
-  { type: 8, name: 'Rogue Runner', hp: 70, radius: 0.62, speed: 0, accel: 0, mass: 1, light: true, humanoid: true, score: 150, pulse: 6, hover: ROGUE.CENTER, damage: 5, weak: { y: PLAYER.HEAD_CENTER - ROGUE.CENTER, r: PLAYER.HEAD_RADIUS, f: 0 }, cost: 3 },
+  { type: 8, name: 'Rogue Runner', hp: 70, radius: 0.62, speed: 0, accel: 0, mass: 1, light: true, humanoid: true, objective: true, score: 150, pulse: 6, hover: ROGUE.CENTER, damage: 5, weak: { y: PLAYER.HEAD_CENTER - ROGUE.CENTER, r: PLAYER.HEAD_RADIUS, f: 0 }, cost: 3 },
 ]);
 
 /* Boids tuning (Drift Swarm). See updateSwarm for the explanation. */
@@ -85,7 +85,7 @@ export class Enemy {
     const hpScale = (opts.hpScale || 1) * (this.elite ? 2.2 : 1);
     this.maxHp = def.hp * hpScale;
     this.hp = this.maxHp;
-    this.damageScale = (opts.damageScale || 1) * (this.elite ? 1.35 : 1);
+    this.damageScale = (opts.damageScale ?? 1) * (this.elite ? 1.35 : 1); // 0 = harmless (training)
     this.radius = def.radius * (this.elite ? 1.25 : 1);
     this.x = x; this.y = y; this.z = z;
     this.vx = 0; this.vy = 0; this.vz = 0;
@@ -1215,6 +1215,11 @@ export class EnemySystem {
     e.wantMove = false;
     e.blocked = false;
     if (m.onGround) { e.safeX = m.x; e.safeY = m.y; e.safeZ = m.z; }
+    // Retaliate: whoever shot this runner in the last few seconds becomes its target.
+    if (e.lastHitBy && w.time - e.lastHitTime < 3 && e.lastHitBy.canAct && e.target !== e.lastHitBy) {
+      e.target = e.lastHitBy;
+      e.targetTimer = 3;
+    }
     const t = e.target;
 
     if (e.stunTimer > 0) {
@@ -1228,7 +1233,8 @@ export class EnemySystem {
       const dist = Math.hypot(dx, dz) || 1;
       const inView = (-Math.sin(e.yaw) * dx - Math.cos(e.yaw) * dz) / dist > ROGUE.VIEW_COS || dist < ROGUE.NEAR;
       const shot = w.time - e.lastDamageTime < 1;
-      if ((e.hasLOS && dist < ROGUE.SIGHT && inView) || shot) {
+      // co-op: the reactor is an objective they always advance on
+      if ((e.hasLOS && dist < ROGUE.SIGHT && inView) || shot || t.isReactor) {
         if (!e.engaged || e.lostTime > 0.5) e.reaction = Math.max(e.reaction, ROGUE.REACTION + w.rng() * 0.35);
         if (shot && !e.hasLOS) { e.lastKnownX = t.x; e.lastKnownY = t.y; e.lastKnownZ = t.z; e.lostTime = 0; }
         e.engaged = true;
@@ -1286,7 +1292,7 @@ export class EnemySystem {
     // aim (smoothly: flanking a runner works)
     const tx = e.hasLOS ? t.x : e.lastKnownX, tz = e.hasLOS ? t.z : e.lastKnownZ;
     const ax = tx - e.x, az = tz - e.z;
-    const ay = (e.hasLOS ? t.y : e.lastKnownY) + 1.1 - (m.y + PLAYER.EYE_HEIGHT);
+    const ay = (e.hasLOS ? t.y : e.lastKnownY) + (t.isReactor ? 0 : 1.1) - (m.y + PLAYER.EYE_HEIGHT);
     e.yaw = turnToward(e.yaw, Math.atan2(-ax, -az), ROGUE.TURN_RATE * dt);
     inp.pitch = clamp(Math.atan2(ay, Math.hypot(ax, az)), -1.2, 1.2);
 
@@ -1330,7 +1336,8 @@ export class EnemySystem {
     const m = e.move;
     const ox = m.x - Math.sin(e.yaw) * 0.5, oy = m.y + 1.35, oz = m.z - Math.cos(e.yaw) * 0.5;
     const yaw = Math.atan2(-(t.x - ox), -(t.z - oz)) + (w.rng() - 0.5) * 2 * ROGUE.SPREAD;
-    const pitch = Math.atan2(t.y + 1.1 - oy, Math.hypot(t.x - ox, t.z - oz)) + (w.rng() - 0.5) * 2 * ROGUE.SPREAD;
+    const aimY = t.isReactor ? t.y : t.y + 1.1;
+    const pitch = Math.atan2(aimY - oy, Math.hypot(t.x - ox, t.z - oz)) + (w.rng() - 0.5) * 2 * ROGUE.SPREAD;
     const cp = Math.cos(pitch);
     const speed = ROGUE.BOLT_SPEED;
     w.spawnProjectile({
