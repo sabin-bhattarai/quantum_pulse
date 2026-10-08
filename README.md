@@ -47,7 +47,7 @@ Quantum Pulse is an original, fast-paced first-person arena shooter built with T
 **Movement**
 - Acceleration-based ground movement with momentum preservation in the air
 - Sprint, slide, slide-jump, wall-run and wall-jump
-- Air dash with one charge per airtime, refilled on landing or by a wall-jump
+- Long jump (double-tap `Space`): an air dash with one charge per airtime, refilled on landing or by a wall-jump
 - Grapple that can swing, reel and launch. It also latches onto quantum rings.
 - Coyote time, jump buffering, automatic step-up and ledge mantling ("ledge forgiveness")
 - Launch pads and hard-landing shockwaves
@@ -127,12 +127,15 @@ Each mode starts in an arena with three always-available weapons. Survival unloc
 |---|---|
 | Move | `W` `A` `S` `D` |
 | Look | Mouse (pointer lock; click the game to capture) |
-| Fire / aim (hold to zoom; deflect with Phase Blades) | `LMB` / `RMB` |
+| Fire | `LMB` |
+| Zoom: tap to zoom in, tap again to zoom out | `Shift` |
+| Aim while held (zoom; deflect with Phase Blades) | `RMB` |
 | Jump · wall-jump · grapple launch | `Space` |
-| Sprint · air dash | `Shift` |
+| Long jump (forward air dash; one per jump, refilled on landing or wall-jump) | `Space` `Space` (double-tap) |
+| Sprint | Automatic when running forward (Settings → Gameplay → *Always sprint*; turn it off and bind *Sprint* to sprint manually) |
 | Slide | `C` or `Ctrl`* |
 | Grapple (tap to attach / swing, hold to reel, tap again to release) | `Q` |
-| Interact · revive · Pulse transfer (co-op) · summon swarm (training) | `E` |
+| Interact · revive · Pulse transfer (co-op) · summon practice squad (training) | `E` |
 | Melee pulse | `F` |
 | Reload | `R` |
 | Weapons | `1`–`6`, mouse wheel |
@@ -153,7 +156,7 @@ Touch devices get on-screen controls automatically. Play in landscape; starting 
 | Move | Left thumb anywhere on the left side: a floating stick appears under it. Push it all the way forward to sprint. Pushing it sideways also turns the view, like steering (Settings → Gameplay → *Touch: joystick also turns the view*). |
 | Look | Drag anywhere on the right side |
 | Fire | Hold **Fire**. You can also drag on it to aim while firing. |
-| Jump · slide · air dash · grapple | **Jump**, **Slide**, **Dash**, **Hook** |
+| Jump · long jump · slide · air dash · grapple | **Jump** (tap twice for a long jump), **Slide**, **Dash**, **Hook** |
 | Aim and zoom / alt-fire | **Aim** (toggle) |
 | Reload · next weapon | **Reload**, **Swap** |
 | Phase Break · gravity well · melee · interact | **Phase**, **Well**, **Melee**, **Use** (the row under the health bars) |
@@ -179,7 +182,7 @@ A warm-up lasts until a second runner joins, then a 10 s countdown starts the ti
 Co-op rooms are private: **Create room** to get a five-letter code to share, or **Join** with a friend's code (a code is required). Defend the reactor in Reactor Null across 10 waves of Rogue Runner squads, sized to the team; they push the reactor and turn on whoever shoots them. A runner at 0 HP is **downed** and bleeds out over 20 s; teammates revive them by holding `E` nearby. Fallen runners return between waves, where everyone picks an upgrade. The team loses if the reactor is destroyed or the whole squad is down, and wins by sealing the rift after wave 10.
 
 ### Training Range (offline)
-Six target dummies (two of them moving) are placed along an automatically validated firing lane. You have every weapon, fast Pulse recharge and no damage taken. A telemetry panel shows FPS, latency, speed, vertical speed, acceleration, movement state, 3-second DPS, total damage, accuracy and sensitivity. An optional 12-step **movement tutorial** checks off techniques as you perform them. Press `E` to summon a harmless practice squad of three Rogue Runners.
+Six target dummies (two of them moving) are placed along an automatically validated firing lane. You have every weapon, fast Pulse recharge and no damage taken. A telemetry panel shows FPS, latency, speed, vertical speed, acceleration, movement state, 3-second DPS, total damage, accuracy and sensitivity. An optional 13-step **movement tutorial** checks off techniques as you perform them. Press `E` to summon a harmless practice squad of three Rogue Runners.
 
 ---
 
