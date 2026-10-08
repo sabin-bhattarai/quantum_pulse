@@ -851,7 +851,7 @@ export class GameClient {
     const wantZoom = zdef.zoom < 1 && this.acceptingInput && (this.input.isHeld('alt') || this.input.zoomToggled) && !!(meNow && meNow.al && !(meNow.dn > 0) && !(meNow.rl >= 0));
     this.zoom += ((wantZoom ? zdef.zoom : 1) - this.zoom) * Math.min(1, dt * 14);
     const ads = zdef.zoom < 1 ? clamp((1 - this.zoom) / (1 - zdef.zoom), 0, 1) : 0;
-    const scoped = zdef.zoom < 0.5 && ads > 0.85;
+    const scoped = zdef.zoom < 0.3 && ads > 0.85;
     if (ads > 0.6) this.tutorialHit('zoom');
     this.ui.setScope(scoped);
     const bobAmp = (this.settings.reducedFlashes ? 0 : grounded ? clamp(hs / 13, 0, 1) : 0) * (1 - ads);

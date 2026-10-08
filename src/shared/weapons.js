@@ -32,7 +32,7 @@ export const WeaponType = Object.freeze({
  * @property {string} sfx audio hook id
  * @property {string} vfx visual effect hook id
  * @property {number} color hex colour used for tracers and HUD accents
- * @property {number} zoom aim-down-sights magnification as a tan(FOV) scale (1 = none; < 0.5 shows the scope)
+ * @property {number} zoom aim-down-sights magnification as a tan(FOV) scale (1 = none; < 0.3 shows the scope)
  */
 
 /** @type {ReadonlyArray<WeaponDef>} */
@@ -43,7 +43,7 @@ export const WEAPONS = Object.freeze([
     damage: 13, headMult: 2, fireInterval: 0.095, magazine: 32, reloadTime: 1.35, range: 140,
     falloffStart: 45, falloffEnd: 120, falloffMin: 0.6,
     spreadBase: 0.004, spreadPerSpeed: 0.0016, spreadAir: 0.012, spreadMax: 0.05, aimSpreadScale: 0.45,
-    recoil: 0.012, auto: true, sfx: 'carbine', vfx: 'tracer', color: 0xf2c230, zoom: 0.6,
+    recoil: 0.012, auto: true, sfx: 'carbine', vfx: 'tracer', color: 0xf2c230, zoom: 0.4,
   },
   {
     id: 'scatter', name: 'Arc Scatter', slot: 2, type: WeaponType.PELLETS,
@@ -51,7 +51,7 @@ export const WEAPONS = Object.freeze([
     damage: 8.5, headMult: 1.5, pellets: 10, fireInterval: 0.78, magazine: 6, reloadTime: 1.8, range: 32,
     spreadBase: 0.085, spreadPerSpeed: 0.0006, spreadAir: 0.01, spreadMax: 0.12, aimSpreadScale: 0.7,
     projectileSpeed: 75, projectileGravity: 14, projectileLife: 0.45, projectileRadius: 0.18,
-    stunLight: 0.45, recoil: 0.06, auto: false, sfx: 'scatter', vfx: 'arc', color: 0xe0473a, zoom: 0.85,
+    stunLight: 0.45, recoil: 0.06, auto: false, sfx: 'scatter', vfx: 'arc', color: 0xe0473a, zoom: 0.7,
   },
   {
     id: 'lance', name: 'Vector Lance', slot: 3, type: WeaponType.CHARGE,
@@ -59,7 +59,7 @@ export const WEAPONS = Object.freeze([
     damage: 30, minDamage: 30, maxDamage: 125, headMult: 2, chargeTime: 1.0, pierce: 3,
     fireInterval: 0.35, magazine: 5, reloadTime: 2.0, range: 220,
     spreadBase: 0.001, spreadPerSpeed: 0.0004, spreadAir: 0.004, spreadMax: 0.02, aimSpreadScale: 0.2,
-    recoil: 0.05, auto: false, sfx: 'lance', vfx: 'beam', color: 0x2f6fd0, zoom: 0.35,
+    recoil: 0.05, auto: false, sfx: 'lance', vfx: 'beam', color: 0x2f6fd0, zoom: 0.18,
   },
   {
     id: 'singularity', name: 'Singularity Launcher', slot: 4, type: WeaponType.PROJECTILE,
@@ -68,7 +68,7 @@ export const WEAPONS = Object.freeze([
     range: 80, projectileSpeed: 24, projectileGravity: 2, projectileLife: 3.2, projectileRadius: 0.45,
     fracture: { radius: 9, strength: 34, duration: 3.6, mode: FractureMode.ATTRACT },
     spreadBase: 0, spreadPerSpeed: 0, spreadAir: 0, spreadMax: 0, aimSpreadScale: 1,
-    recoil: 0.08, auto: false, sfx: 'singularity', vfx: 'orb', color: 0x2a9d8f, zoom: 0.8,
+    recoil: 0.08, auto: false, sfx: 'singularity', vfx: 'orb', color: 0x2a9d8f, zoom: 0.6,
   },
   {
     id: 'blades', name: 'Phase Blades', slot: 5, type: WeaponType.MELEE,
@@ -84,7 +84,7 @@ export const WEAPONS = Object.freeze([
     description: 'Each shot repeats from the same trajectory 0.6 s later. Watch the echo markers.',
     damage: 15, headMult: 2, echoDelay: 0.6, echoDamageMult: 0.6, fireInterval: 0.24, magazine: 12, reloadTime: 1.6,
     range: 150, spreadBase: 0.003, spreadPerSpeed: 0.001, spreadAir: 0.008, spreadMax: 0.03, aimSpreadScale: 0.5,
-    recoil: 0.02, auto: true, sfx: 'echo', vfx: 'echo', color: 0x8cc63f, zoom: 0.6,
+    recoil: 0.02, auto: true, sfx: 'echo', vfx: 'echo', color: 0x8cc63f, zoom: 0.45,
   },
 ]);
 
