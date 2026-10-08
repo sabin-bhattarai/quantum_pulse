@@ -190,7 +190,7 @@ function fireWeapon(world, p, ws, input, aiming, charge) {
           vx: d.x * def.projectileSpeed * speedScale + m.vx * 0.3, vy: d.y * def.projectileSpeed * speedScale + m.vy * 0.3,
           vz: d.z * def.projectileSpeed * speedScale + m.vz * 0.3,
           gravity: def.projectileGravity * (m.boostTimer > 0 ? 0.5 : 1), life: def.projectileLife, radius: def.projectileRadius,
-          damage: def.damage * scale, weapon: wi, stunLight: def.stunLight,
+          damage: def.damage * scale, weapon: wi, stunLight: def.stunLight, lag: world.tick - rewind,
         });
       }
       world.emit(EV.FIRE, p.id, wi, q(ex), q(ey), q(ez), q(ex + view.x * 6), q(ey + view.y * 6), q(ez + view.z * 6), 0);
@@ -203,7 +203,7 @@ function fireWeapon(world, p, ws, input, aiming, charge) {
         vx: view.x * sp + m.vx * 0.5, vy: view.y * sp + m.vy * 0.5, vz: view.z * sp + m.vz * 0.5,
         gravity: def.projectileGravity, life: def.projectileLife, radius: def.projectileRadius,
         damage: def.damage * scale, splashDamage: def.splashDamage * scale, splashRadius: def.splashRadius,
-        fracture: def.fracture, weapon: wi,
+        fracture: def.fracture, weapon: wi, lag: world.tick - rewind,
       });
       world.emit(EV.FIRE, p.id, wi, q(ex), q(ey), q(ez), q(ex + view.x * 3), q(ey + view.y * 3), q(ez + view.z * 3), 0);
       break;
