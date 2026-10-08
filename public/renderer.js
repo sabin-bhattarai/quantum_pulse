@@ -736,24 +736,26 @@ export class Renderer {
       _c.copy(this.palette.cyan).lerp(c < 0.99 ? this.palette.magenta : this.palette.amber, c < 0.99 ? c : 1);
       cur.accent.color.copy(_c);
     }
+    // Muzzle flash: small and brief, and hidden while aiming down sights so it never sits on the crosshair.
     const mz = this.muzzle;
-    mz.material.opacity = vm.muzzle > 0.05 ? 1 : 0;
+    const flash = vm.muzzle * (1 - Math.min(1, ads * 2));
+    mz.material.opacity = flash > 0.05 ? Math.min(1, flash * 1.3) * 0.8 : 0;
     mz.material.rotation = this.time * 7;
     mz.position.set(g.position.x * 0.8, g.position.y * 0.8 + 0.03, g.position.z - 0.5);
-    mz.scale.setScalar(0.16 + vm.muzzle * 0.22);
+    mz.scale.setScalar(0.08 + flash * 0.12);
   }
 
   /* ---------------------------------------------------------------- */
   /* effect helpers                                                    */
   /* ---------------------------------------------------------------- */
 
-  tracer(ax, ay, az, bx, by, bz, color, width = 0.04, life = 0.12) {
-    this.ribbons.add(ax, ay, az, bx, by, bz, color, width * 1.4, life);
+  tracer(ax, ay, az, bx, by, bz, color, width = 0.04, life = 0.12, alpha = 1) {
+    this.ribbons.add(ax, ay, az, bx, by, bz, color, width * 1.4, life, alpha);
   }
 
   impact(x, y, z, color, count = 10, speed = 6) {
     this.particles.burst(x, y, z, count, speed, color, 4.5, 0.35, { gravity: 8, drag: 3 });
-    if (count >= 12) this.burst(x, y, z, 0, 0.9, 0.22);
+    if (count >= 16) this.burst(x, y, z, 0, 0.9, 0.22); // big hits only (Lance, explosions), never on every headshot
   }
 
   explosion(x, y, z, radius, color) {
@@ -769,7 +771,7 @@ export class Renderer {
 
   /** Headshot feedback for the shooter: a red lettered burst at the impact. */
   headshot(x, y, z) {
-    this.burst(x, y + 0.35, z, this.headshotKind, 1.05, 0.55);
+    this.burst(x, y + 0.75, z, this.headshotKind, 0.8, 0.5); // above the head, so the next shot stays visible
   }
 
   /** Enemy death: inked shards + a lettered comic burst. */
