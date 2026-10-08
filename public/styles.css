@@ -236,7 +236,7 @@ kbd {
 .i-blue { fill: var(--blue); }
 .i-yellow { fill: var(--yellow); }
 .mode-card.hero .i-paper { fill: var(--paper); }
-/* Shown only on touch-only devices: the game needs a keyboard and mouse. */
+/* Shown only on touch devices: a one-line primer for the on-screen controls. */
 .touch-note {
   display: none; max-width: 420px; margin: 0; padding: 10px 14px; background: var(--yellow); color: var(--ink);
   border: var(--stroke) solid var(--ink); box-shadow: var(--shadow-sm); font-weight: 700; line-height: 1.4; transform: rotate(0.6deg);
