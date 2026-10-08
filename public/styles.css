@@ -570,6 +570,16 @@ body.touch .pulse-meter { width: 260px; }
 body.touch .team-status { top: 124px; }
 body.touch .abilities, body.touch .weapon-slots, body.touch .training-panel, body.touch .tutorial, body.touch .hud-topright { display: none !important; }
 
+/* Portrait phones: ask for landscape while playing. */
+.rotate-hint { display: none; }
+@media (orientation: portrait) {
+  body.touch.locked .rotate-hint {
+    display: flex; position: fixed; inset: 0; z-index: 30; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    background: var(--ink); color: var(--paper); text-align: center; padding: 24px;
+  }
+  .rotate-hint b { font-family: var(--display); font-weight: 400; font-size: 2.2rem; text-transform: uppercase; color: var(--yellow); }
+}
+
 /* ------------------------------------------------------------------------
    Responsive
    ------------------------------------------------------------------------ */
