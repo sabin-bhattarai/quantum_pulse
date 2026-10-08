@@ -39,7 +39,7 @@ export const WEAPONS = Object.freeze([
   {
     id: 'carbine', name: 'Pulse Carbine', slot: 1, type: WeaponType.HITSCAN,
     description: 'Automatic mid-range rifle. Accurate while grounded, unstable at high speed.',
-    damage: 13, headMult: 1.7, fireInterval: 0.095, magazine: 32, reloadTime: 1.35, range: 140,
+    damage: 13, headMult: 2, fireInterval: 0.095, magazine: 32, reloadTime: 1.35, range: 140,
     falloffStart: 45, falloffEnd: 120, falloffMin: 0.6,
     spreadBase: 0.004, spreadPerSpeed: 0.0016, spreadAir: 0.012, spreadMax: 0.05, aimSpreadScale: 0.45,
     recoil: 0.012, auto: true, sfx: 'carbine', vfx: 'tracer', color: 0xf2c230,
@@ -47,7 +47,7 @@ export const WEAPONS = Object.freeze([
   {
     id: 'scatter', name: 'Arc Scatter', slot: 2, type: WeaponType.PELLETS,
     description: 'Short-range energy shotgun. Arcing pellets briefly stun light enemies.',
-    damage: 8.5, headMult: 1.25, pellets: 10, fireInterval: 0.78, magazine: 6, reloadTime: 1.8, range: 32,
+    damage: 8.5, headMult: 1.5, pellets: 10, fireInterval: 0.78, magazine: 6, reloadTime: 1.8, range: 32,
     spreadBase: 0.085, spreadPerSpeed: 0.0006, spreadAir: 0.01, spreadMax: 0.12, aimSpreadScale: 0.7,
     projectileSpeed: 75, projectileGravity: 14, projectileLife: 0.45, projectileRadius: 0.18,
     stunLight: 0.45, recoil: 0.06, auto: false, sfx: 'scatter', vfx: 'arc', color: 0xe0473a,
@@ -55,7 +55,7 @@ export const WEAPONS = Object.freeze([
   {
     id: 'lance', name: 'Vector Lance', slot: 3, type: WeaponType.CHARGE,
     description: 'Hold to charge, release to fire a piercing beam. Glows amber at full power.',
-    damage: 30, minDamage: 30, maxDamage: 125, headMult: 1.5, chargeTime: 1.0, pierce: 3,
+    damage: 30, minDamage: 30, maxDamage: 125, headMult: 2, chargeTime: 1.0, pierce: 3,
     fireInterval: 0.35, magazine: 5, reloadTime: 2.0, range: 220,
     spreadBase: 0.001, spreadPerSpeed: 0.0004, spreadAir: 0.004, spreadMax: 0.02, aimSpreadScale: 0.2,
     recoil: 0.05, auto: false, sfx: 'lance', vfx: 'beam', color: 0x2f6fd0,
@@ -81,7 +81,7 @@ export const WEAPONS = Object.freeze([
   {
     id: 'echo', name: 'Echo Repeater', slot: 6, type: WeaponType.ECHO,
     description: 'Each shot repeats from the same trajectory 0.6 s later. Watch the echo markers.',
-    damage: 15, headMult: 1.6, echoDelay: 0.6, echoDamageMult: 0.6, fireInterval: 0.24, magazine: 12, reloadTime: 1.6,
+    damage: 15, headMult: 2, echoDelay: 0.6, echoDamageMult: 0.6, fireInterval: 0.24, magazine: 12, reloadTime: 1.6,
     range: 150, spreadBase: 0.003, spreadPerSpeed: 0.001, spreadAir: 0.008, spreadMax: 0.03, aimSpreadScale: 0.5,
     recoil: 0.02, auto: true, sfx: 'echo', vfx: 'echo', color: 0x8cc63f,
   },
