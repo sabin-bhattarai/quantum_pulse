@@ -13,6 +13,7 @@
  * only — it can be bypassed by a modified client — so none is relied upon.
  * @module server/GameServer
  */
+import { randomInt } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { SIM, NET, MATCH, MODES, PROTOCOL_VERSION } from '../shared/constants.js';
 import { MSG } from '../shared/protocol.js';
@@ -20,6 +21,10 @@ import { parseMessage, validateHello } from '../shared/validation.js';
 import { Room } from './Room.js';
 
 let connectionCounter = 0;
+
+/** Room codes: no 0/O or 1/I so they can be read out loud. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 5;
 
 export class GameServer {
   /**
@@ -198,11 +203,14 @@ export class GameServer {
     if (hello.token) {
       for (const r of this.rooms.values()) if (r.tokens.has(hello.token)) { room = r; break; }
     }
-    if (!room) room = this.findRoom(hello.mode, hello.room, hello.arena);
     if (!room) {
-      this.send(conn, { t: MSG.ERROR, code: 'capacity', msg: 'No room available. Try again shortly.' });
-      conn.ws.close(1013, 'no room');
-      return;
+      const found = this.resolveRoom(hello);
+      if (found.error) {
+        this.send(conn, { t: MSG.ERROR, code: 'room', msg: found.error });
+        conn.ws.close(1013, 'no room');
+        return;
+      }
+      room = found.room;
     }
     const sink = {
       send: (m) => this.send(conn, m),
@@ -225,14 +233,71 @@ export class GameServer {
     this.log('info', 'player joined', { room: room.id, mode: room.mode, name: res.player.name, players: room.connectedCount });
   }
 
-  /** Find a joinable room for the mode (and private code), or create one. */
-  findRoom(mode, code, arena) {
-    for (const r of this.rooms.values()) {
-      if (r.mode !== mode || r.code !== code) continue;
-      if (r.joinable) return r;
-      if (code) return null; // private room exists but is full
+  /**
+   * Pick the room for a hello.
+   *   create  a new room with a fresh code (FFA rooms then appear in the lobby list)
+   *   join    the room with this code (required)
+   *   quick   FFA only: the busiest joinable room, else a new one
+   * Co-op rooms are private: they are only reachable with `create` or a code.
+   * @returns {{room?: Room, error?: string}}
+   */
+  resolveRoom(hello) {
+    const { mode, arena, action } = hello;
+    const code = hello.room;
+    const label = mode === MODES.COOP ? 'co-op' : 'free-for-all';
+    if (action === 'join') {
+      if (!code) return { error: 'Enter a room code.' };
+      const r = this.roomByCode(mode, code);
+      if (!r) return { error: `No ${label} room with code ${code}. Check the code with your friend.` };
+      if (!r.joinable) return { error: `Room ${code} is full or between matches. Try again shortly.` };
+      return { room: r };
     }
+    if (action === 'quick') {
+      if (mode === MODES.COOP) return { error: 'Co-op needs a room code: create a room, or join one with a code.' };
+      let best = null;
+      for (const r of this.rooms.values()) {
+        if (r.mode === mode && r.joinable && (!best || r.connectedCount > best.connectedCount)) best = r;
+      }
+      if (best) return { room: best };
+    }
+    const room = this.createRoom(mode, arena);
+    return room ? { room } : { error: 'The server is full right now. Try again shortly.' };
+  }
+
+  roomByCode(mode, code) {
+    for (const r of this.rooms.values()) if (r.mode === mode && r.code === code) return r;
+    return null;
+  }
+
+  /** A fresh, unused room code. */
+  newCode() {
+    for (;;) {
+      let c = '';
+      for (let i = 0; i < CODE_LENGTH; i++) c += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
+      let used = false;
+      for (const r of this.rooms.values()) if (r.code === c) { used = true; break; }
+      if (!used) return c;
+    }
+  }
+
+  /**
+   * Public lobby: every free-for-all room (co-op rooms are private and never listed).
+   * @returns {Array<{code:string, arena:string, players:number, max:number, phase:string, joinable:boolean}>}
+   */
+  listRooms() {
+    const out = [];
+    for (const r of this.rooms.values()) {
+      if (r.mode !== MODES.FFA || r.disposable) continue;
+      out.push({ code: r.code, arena: r.world.arena.id, players: r.connectedCount, max: r.maxPlayers, phase: r.world.rules.phase, joinable: r.joinable });
+    }
+    out.sort((a, b) => Number(b.joinable) - Number(a.joinable) || b.players - a.players || a.code.localeCompare(b.code));
+    return out;
+  }
+
+  /** Create a room with a new code, or null when the server is at its room limit. */
+  createRoom(mode, arena) {
     if (this.rooms.size >= this.config.maxRooms) return null;
+    const code = this.newCode();
     const id = `${mode}-${++this.roomCounter}`;
     const arenaId = mode === MODES.COOP ? 'reactor_null' : (arena || this.config.ffaArenas[this.roomCounter % this.config.ffaArenas.length]);
     const room = new Room({
