@@ -10,15 +10,16 @@
  *   - inside the browser for offline Solo Survival and the Training Range.
  * @module server/World
  */
-import { SIM, NET, PULSE, PLAYER, LIMITS, TEAM, MODES, MATCH, FRACTURE, BTN } from '../shared/constants.js';
+import { SIM, NET, PULSE, PLAYER, LIMITS, TEAM, MODES, MATCH, FRACTURE, BTN, ROGUE } from '../shared/constants.js';
 import { createArena, ColliderKind } from '../shared/arenas.js';
 import { createCollisionEnv, stepMovement, MoveEvent, raycastArena } from '../shared/movement.js';
 import { makeFracture, accumulateFractureDeltaV } from '../shared/gravity.js';
-import { mulberry32, raySphere, pointSegmentDistSq, clamp, quantize } from '../shared/math.js';
+import { mulberry32, raySphere, rayVerticalCapsule, pointSegmentDistSq, clamp, quantize } from '../shared/math.js';
 import { EV, PF, EF, PK, PICKUP, encodeMoveState } from '../shared/protocol.js';
 import { Player } from './Player.js';
 import { EnemySystem, EnemyType, AIState } from './Enemy.js';
 import { SpatialHash } from './SpatialHash.js';
+import { WEAPONS } from '../shared/weapons.js';
 import { updatePlayerWeapons, tryDeflect, grantLoadout } from './Weapons.js';
 import {
   addPulse, onPhaseActivated, tryGravityAbility, tryMeleePulse, landingShockwave,
@@ -29,8 +30,24 @@ import { createRules } from './Match.js';
 const MAX_REWIND_TICKS = Math.floor((NET.LAG_COMP_MAX_MS / 1000) * SIM.TICK_RATE);
 const MAX_TRACE_HITS = 16;
 
-/** Body hit spheres for players relative to the feet: [yOffset, radius, isHead]. */
-const PLAYER_HIT_SPHERES = [[0.5, 0.48, false], [1.08, 0.46, false], [PLAYER.HEAD_CENTER, PLAYER.HEAD_RADIUS, true]];
+const _hum = { t: -1, head: false };
+
+/**
+ * Ray vs a humanoid (player or Rogue Runner) standing with its feet at
+ * (fx, fy, fz): body capsule + head sphere from PLAYER, lowered by `drop`
+ * while sliding, both inflated by `pad` (projectile radius). The head wins
+ * when it is struck no more than 0.35 m behind the body entry point, so shots
+ * grazing the shoulders into the helmet still count as headshots.
+ * @returns {{t:number, head:boolean}} shared result (t = -1 on a miss)
+ */
+function rayHumanoid(ox, oy, oz, dx, dy, dz, fx, fy, fz, drop, pad, maxT) {
+  const b = fy - drop;
+  const tb = rayVerticalCapsule(ox, oy, oz, dx, dy, dz, fx, b + PLAYER.BODY_BOTTOM, b + PLAYER.BODY_TOP, fz, PLAYER.BODY_RADIUS + pad, maxT);
+  const th = raySphere(ox, oy, oz, dx, dy, dz, fx, b + PLAYER.HEAD_CENTER, fz, PLAYER.HEAD_RADIUS + pad, maxT);
+  if (th >= 0 && (tb < 0 || th <= tb + 0.35)) { _hum.t = th; _hum.head = true; }
+  else { _hum.t = tb; _hum.head = false; }
+  return _hum;
+}
 
 const _pos = { x: 0, y: 0, z: 0 };
 const _wp = { x: 0, y: 0, z: 0, r: 0 };
@@ -671,6 +688,13 @@ export class World {
       for (const e of this.enemies.active) {
         if (!e.targetable) continue;
         e.positionAt(rewindTick, _pos);
+        if (e.def.humanoid) {
+          const r = rayHumanoid(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y - ROGUE.CENTER, _pos.z, e.move && e.move.slideTimer > 0 ? PLAYER.SLIDE_DROP : 0, 0, maxT);
+          if (r.t < 0 || n >= MAX_TRACE_HITS) continue;
+          const h = res.hits[n++];
+          h.target = e; h.t = r.t; h.head = r.head;
+          continue;
+        }
         let t = raySphere(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y, _pos.z, e.radius, maxT);
         let head = false;
         if (e.weakPoint(_pos.x, _pos.y, _pos.z, _wp)) {
@@ -687,14 +711,10 @@ export class World {
       for (const p of this.activePlayers) {
         if (p === shooter || !p.canAct) continue;
         p.positionAt(rewindTick, _pos);
-        let best = -1, head = false;
-        for (const [yo, r, isHead] of PLAYER_HIT_SPHERES) {
-          const t = raySphere(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y + yo, _pos.z, r, maxT);
-          if (t >= 0 && (best < 0 || t < best)) { best = t; head = isHead; }
-        }
-        if (best < 0 || n >= MAX_TRACE_HITS) continue;
+        const r = rayHumanoid(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y, _pos.z, p.move.slideTimer > 0 ? PLAYER.SLIDE_DROP : 0, 0, maxT);
+        if (r.t < 0 || n >= MAX_TRACE_HITS) continue;
         const h = res.hits[n++];
-        h.target = p; h.t = best; h.head = head;
+        h.target = p; h.t = r.t; h.head = r.head;
       }
     }
     // sort by distance (insertion sort; n is tiny)
@@ -772,6 +792,7 @@ export class World {
       pr.splashRadius = o.splashRadius || 0;
       pr.fracture = o.fracture || null;
       pr.weapon = o.weapon ?? -1;
+      pr.lag = Math.max(0, Math.min(o.lag || 0, MAX_REWIND_TICKS)); // rewind ticks for lag compensation
       pr.stunLight = o.stunLight || 0;
       pr.nearMask = 0;
       return pr;
@@ -796,25 +817,32 @@ export class World {
       const dx = sx / segLen, dy = sy / segLen, dz = sz / segLen;
 
       // Entity hits along the segment
-      let hitTarget = null, hitT = segLen;
+      let hitTarget = null, hitT = segLen, hitHead = false;
       if (pr.team === TEAM.PLAYERS) {
-        this.spatial.query((ox + nx) / 2, (oy + ny) / 2, (oz + nz) / 2, segLen / 2 + 4, _nb, null);
+        // Lag compensation: a player's projectile is tested against targets where the shooter
+        // saw them (pr.lag ticks in the past), exactly like hitscan shots.
+        const rewind = this.tick - pr.lag;
+        this.spatial.query((ox + nx) / 2, (oy + ny) / 2, (oz + nz) / 2, segLen / 2 + 4 + pr.lag * 0.25, _nb, null);
         for (const e of _nb) {
           if (!e.targetable) continue;
+          e.positionAt(rewind, _pos);
+          if (e.def.humanoid) {
+            const r = rayHumanoid(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y - ROGUE.CENTER, _pos.z, e.move && e.move.slideTimer > 0 ? PLAYER.SLIDE_DROP : 0, pr.radius, segLen);
+            if (r.t >= 0 && r.t < hitT) { hitT = r.t; hitTarget = e; hitHead = r.head; }
+            continue;
+          }
           const rr = e.radius + pr.radius;
-          if (pointSegmentDistSq(e.x, e.y, e.z, ox, oy, oz, nx, ny, nz) <= rr * rr) {
-            const t = Math.max(0, (e.x - ox) * dx + (e.y - oy) * dy + (e.z - oz) * dz);
-            if (t < hitT) { hitT = t; hitTarget = e; }
+          if (pointSegmentDistSq(_pos.x, _pos.y, _pos.z, ox, oy, oz, nx, ny, nz) <= rr * rr) {
+            const t = Math.max(0, (_pos.x - ox) * dx + (_pos.y - oy) * dy + (_pos.z - oz) * dz);
+            if (t < hitT) { hitT = t; hitTarget = e; hitHead = false; }
           }
         }
         if (this.rules.allowPvP) {
           for (const p of this.activePlayers) {
             if (p === pr.owner || !p.canAct) continue;
-            const rr = 0.55 + pr.radius;
-            if (pointSegmentDistSq(p.x, p.y + 0.9, p.z, ox, oy, oz, nx, ny, nz) <= rr * rr) {
-              const t = Math.max(0, (p.x - ox) * dx + (p.y + 0.9 - oy) * dy + (p.z - oz) * dz);
-              if (t < hitT) { hitT = t; hitTarget = p; }
-            }
+            p.positionAt(rewind, _pos);
+            const r = rayHumanoid(ox, oy, oz, dx, dy, dz, _pos.x, _pos.y, _pos.z, p.move.slideTimer > 0 ? PLAYER.SLIDE_DROP : 0, pr.radius, segLen);
+            if (r.t >= 0 && r.t < hitT) { hitT = r.t; hitTarget = p; hitHead = r.head; }
           }
         }
       } else {
@@ -823,14 +851,14 @@ export class World {
           const d2 = pointSegmentDistSq(p.x, p.y + 0.9, p.z, ox, oy, oz, nx, ny, nz);
           if (d2 > 25) continue;
           if (tryDeflect(this, p, pr)) break;
-          const rr = 0.55 + pr.radius;
-          if (d2 <= rr * rr) {
+          const r = rayHumanoid(ox, oy, oz, dx, dy, dz, p.x, p.y, p.z, p.move.slideTimer > 0 ? PLAYER.SLIDE_DROP : 0, pr.radius, segLen);
+          if (r.t >= 0) {
             if (p.move.phaseTimer > 0) continue; // Phase Break: enemy projectiles pass through
-            hitTarget = p; hitT = 0;
+            hitTarget = p; hitT = r.t;
             break;
           }
           // Near-miss dodge: rewarded once per projectile per player.
-          const nm = rr + PULSE.NEAR_MISS_RADIUS;
+          const nm = 0.55 + pr.radius + PULSE.NEAR_MISS_RADIUS;
           if (d2 <= nm * nm && !(pr.nearMask & (1 << p.slot))) {
             pr.nearMask |= 1 << p.slot;
             addPulse(this, p, PULSE.NEAR_MISS);
@@ -859,7 +887,8 @@ export class World {
       }
       if (hitTarget) {
         const ix = ox + dx * hitT, iy = oy + dy * hitT, iz = oz + dz * hitT;
-        this.applyDamage(hitTarget, pr.damage, pr.owner, { weapon: pr.weapon, x: ix, y: iy, z: iz });
+        const headMult = hitHead && pr.weapon >= 0 ? WEAPONS[pr.weapon].headMult : 1;
+        this.applyDamage(hitTarget, pr.damage * headMult, pr.owner, { weapon: pr.weapon, headshot: hitHead, x: ix, y: iy, z: iz });
         if (pr.stunLight && hitTarget.isEnemy && hitTarget.def.light) hitTarget.stun(pr.stunLight);
         if (pr.owner && pr.owner.isPlayer && pr.kind === PK.PELLET) pr.owner.stats.hits += 0.1; // 10 pellets == one hit
         this.impactProjectile(pr, hitTarget, ix, iy, iz, true);
