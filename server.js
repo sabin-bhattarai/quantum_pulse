@@ -101,6 +101,12 @@ app.get('/healthz', (req, res) => {
   res.json({ ok: true, uptime: Math.round(process.uptime()), ...(gameServer ? gameServer.stats() : {}) });
 });
 
+// Free-for-all lobby: open rooms anyone can join (co-op rooms are private).
+app.get('/rooms', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ rooms: gameServer ? gameServer.listRooms() : [] });
+});
+
 app.use((req, res) => res.status(404).type('text/plain').send('Not found'));
 
 const server = http.createServer(app);
