@@ -47,6 +47,13 @@ const SCHEMA = {
   holdToGrapple: { def: false },
 };
 
+/** Phones: play fullscreen in landscape where the browser allows it (Android Chrome; iPhone Safari ignores both). */
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || !el.requestFullscreen) return;
+  el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+}
+
 function storageGet(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
 }
@@ -200,6 +207,7 @@ class App {
     this.input.on('lockchange', (locked) => {
       document.body.classList.toggle('locked', locked);
       if (!this.client) return;
+      if (locked && this.input.touch) enterFullscreen();
       if (locked) {
         if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
         this.ui.hidePause();
