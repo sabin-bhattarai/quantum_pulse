@@ -90,14 +90,21 @@
   </section>
 
   <section id="screen-online" class="screen panel-screen" aria-label="Online free-for-all setup">
-    <div class="panel">
+    <div class="panel wide">
       <h2>Online Free-for-All</h2>
-      <p class="muted">Server-authoritative deathmatch for 2–12 runners. Leave the room code empty for quick match, or share a code with friends.</p>
-      <label class="field"><span>Room code (optional)</span><input id="input-room-ffa" type="text" maxlength="8" placeholder="e.g. NEON42" autocomplete="off" spellcheck="false"></label>
+      <p class="muted">Server-authoritative deathmatch for 2–12 runners. Join an open room, create your own (everyone can see it here), or quick match.</p>
+      <div class="room-list-head"><span class="label">Open rooms</span><button class="btn tiny" data-action="refresh-rooms">Refresh</button></div>
+      <div class="room-list" id="room-list" aria-live="polite"></div>
+      <div class="code-join">
+        <label class="field"><span>Have a code?</span><input id="input-room-ffa" type="text" maxlength="8" placeholder="e.g. K7QPX" autocomplete="off" spellcheck="false"></label>
+        <button class="btn" data-action="join-ffa-code">Join</button>
+      </div>
+      <p class="label-line">Arena for a new room</p>
       <div class="arena-picker" data-for="ffa"></div>
       <div class="panel-actions">
         <button class="btn" data-action="back">Back</button>
-        <button class="btn primary" data-action="start-ffa">Connect</button>
+        <button class="btn" data-action="quick-ffa">Quick match</button>
+        <button class="btn primary" data-action="create-ffa">Create room</button>
       </div>
     </div>
   </section>
@@ -106,10 +113,21 @@
     <div class="panel">
       <h2>Co-op Rift Defense</h2>
       <p class="muted">Up to four runners defend the reactor in <b>Reactor Null</b>. Stay tethered for bonuses, revive downed allies with <kbd>E</kbd>, and trigger Pulse together for a Rift Surge.</p>
-      <label class="field"><span>Room code (optional)</span><input id="input-room-coop" type="text" maxlength="8" placeholder="e.g. SQUAD7" autocomplete="off" spellcheck="false"></label>
+      <p class="muted">Co-op rooms are private. Create one and share its code, or join a friend's room with their code.</p>
+      <div class="coop-choices">
+        <div class="caption">
+          <span class="label">Host</span>
+          <p class="muted">Open a new room. Its code appears on screen to share.</p>
+          <button class="btn primary" data-action="create-coop">Create room</button>
+        </div>
+        <div class="caption">
+          <span class="label">Join</span>
+          <label class="field"><span>Room code</span><input id="input-room-coop" type="text" maxlength="8" placeholder="e.g. K7QPX" autocomplete="off" spellcheck="false" required></label>
+          <button class="btn" data-action="join-coop">Join room</button>
+        </div>
+      </div>
       <div class="panel-actions">
         <button class="btn" data-action="back">Back</button>
-        <button class="btn primary" data-action="start-coop">Connect</button>
       </div>
     </div>
   </section>

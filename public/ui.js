@@ -91,8 +91,13 @@ export class UI {
           this.emit('settings', 'mute');
           break;
         case 'start-solo': this.emit('start', { mode: 'survival', arena: this.arenaChoice.solo }); break;
-        case 'start-ffa': this.emit('start', { mode: 'ffa', arena: this.arenaChoice.ffa, room: $('#input-room-ffa').value.trim() }); break;
-        case 'start-coop': this.emit('start', { mode: 'coop', room: $('#input-room-coop').value.trim() }); break;
+        case 'create-ffa': this.emit('start', { mode: 'ffa', action: 'create', arena: this.arenaChoice.ffa }); break;
+        case 'quick-ffa': this.emit('start', { mode: 'ffa', action: 'quick', arena: this.arenaChoice.ffa }); break;
+        case 'join-ffa-code': this.joinByCode('ffa', '#input-room-ffa'); break;
+        case 'join-room': this.emit('start', { mode: 'ffa', action: 'join', room: btn.dataset.code }); break;
+        case 'refresh-rooms': this.refreshRooms(); break;
+        case 'create-coop': this.emit('start', { mode: 'coop', action: 'create' }); break;
+        case 'join-coop': this.joinByCode('coop', '#input-room-coop'); break;
         case 'start-training': this.emit('start', { mode: 'training', arena: this.arenaChoice.training, tutorial: $('#chk-tutorial').checked }); break;
         default: this.emit(a); break;
       }
@@ -120,8 +125,9 @@ export class UI {
     const nameInput = $('#input-name');
     nameInput.value = this.settings.name || '';
     nameInput.addEventListener('change', () => { this.settings.name = nameInput.value.trim().slice(0, 16); this.emit('settings', 'name'); });
-    for (const id of ['#input-room-ffa', '#input-room-coop']) {
+    for (const [id, mode] of [['#input-room-ffa', 'ffa'], ['#input-room-coop', 'coop']]) {
       $(id).addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); });
+      $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') this.joinByCode(mode, id); });
     }
     $('#upgrade-cards').addEventListener('click', (e) => {
       const card = e.target.closest('.ucard');
@@ -134,6 +140,7 @@ export class UI {
   /* ---------------------------------------------------------------- */
 
   showScreen(name) {
+    this.pollRooms(name === 'online');
     const target = `screen-${name}`;
     $$('.screen').forEach((s) => s.classList.toggle('active', s.id === target));
     if (this.screenStack[this.screenStack.length - 1] !== name) this.screenStack.push(name);
@@ -141,6 +148,68 @@ export class UI {
     const inMenus = !!document.querySelector('.screen.active');
     this.menuBg.setVisible(inMenus && !this.inGame);
     if (name === 'solo') this.refreshBest();
+  }
+
+  /** Join a room by its code; the code is required. */
+  joinByCode(mode, inputSel) {
+    const code = $(inputSel).value.trim();
+    if (!code) {
+      this.toast('Enter the room code first.', true, 3000);
+      $(inputSel).focus();
+      return;
+    }
+    this.emit('start', { mode, action: 'join', room: code });
+  }
+
+  /** Keep the free-for-all lobby fresh while its screen is open. */
+  pollRooms(on) {
+    clearInterval(this.roomPoll);
+    this.roomPoll = 0;
+    if (!on) return;
+    this.refreshRooms();
+    this.roomPoll = setInterval(() => this.refreshRooms(), 3000);
+  }
+
+  async refreshRooms() {
+    const list = $('#room-list');
+    let rooms;
+    try {
+      const res = await fetch('/rooms', { cache: 'no-store' });
+      rooms = (await res.json()).rooms;
+      if (!Array.isArray(rooms)) throw new Error('bad list');
+    } catch {
+      list.textContent = '';
+      const p = document.createElement('p');
+      p.className = 'room-empty';
+      p.textContent = 'Room list unavailable. You can still join with a code.';
+      list.appendChild(p);
+      return;
+    }
+    list.textContent = '';
+    if (!rooms.length) {
+      const p = document.createElement('p');
+      p.className = 'room-empty';
+      p.textContent = 'No open rooms yet. Create one and your friends will see it here.';
+      list.appendChild(p);
+      return;
+    }
+    const phase = { warmup: 'Waiting for players', active: 'In match', ended: 'Results' };
+    for (const r of rooms.slice(0, 20)) {
+      const row = document.createElement('div');
+      row.className = `room-row${r.joinable ? '' : ' full'}`;
+      const code = document.createElement('b'); code.className = 'code'; code.textContent = String(r.code);
+      const arena = document.createElement('span'); arena.textContent = arenaName(String(r.arena));
+      const count = document.createElement('span'); count.className = 'count'; count.textContent = `${r.players | 0}/${r.max | 0}`;
+      const ph = document.createElement('span'); ph.className = 'phase'; ph.textContent = phase[r.phase] || '';
+      const join = document.createElement('button');
+      join.className = 'btn tiny';
+      join.dataset.action = 'join-room';
+      join.dataset.code = String(r.code);
+      join.textContent = r.joinable ? 'Join' : 'Full';
+      join.disabled = !r.joinable;
+      row.append(code, arena, count, ph, join);
+      list.appendChild(row);
+    }
   }
 
   back() {
@@ -151,6 +220,7 @@ export class UI {
   }
 
   hideScreens() {
+    this.pollRooms(false);
     $$('.screen').forEach((s) => s.classList.remove('active'));
     this.menuBg.setVisible(false);
   }
@@ -285,7 +355,7 @@ export class UI {
         const b = document.createElement('b');
         b.textContent = id ? arenaName(id) : 'Any arena';
         const sm = document.createElement('small');
-        sm.textContent = id ? ARENA_TAGLINES[id] : 'Quick match on the server rotation';
+        sm.textContent = id ? ARENA_TAGLINES[id] : 'The server picks from its rotation';
         card.append(b, sm);
         card.classList.toggle('selected', this.arenaChoice[key] === id);
         card.addEventListener('click', () => {
