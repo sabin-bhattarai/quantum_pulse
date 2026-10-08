@@ -9,7 +9,7 @@
  * @module shared/constants
  */
 
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Fixed-step simulation timing. */
 export const SIM = Object.freeze({
@@ -313,6 +313,42 @@ export const SURVIVAL = Object.freeze({
   COMBO_TIMEOUT_S: 4,
   COMBO_MAX: 10,
 });
+
+/**
+ * Rogue Runners: the solo-survival opponents. They are bots driven by the
+ * player movement model, drawn with the multiplayer runner rig.
+ */
+export const ROGUE = Object.freeze({
+  CENTER: 0.95, // hit-sphere centre above the feet
+  SIGHT: 55, // metres they can spot a player at
+  VIEW_COS: -0.25, // forward view cone (~210 degrees); always aware inside NEAR
+  NEAR: 8,
+  REACTION: 0.55, // seconds from spotting to first shot (plus up to 0.35 random)
+  FORGET: 4, // seconds without sight before giving up the fight and searching
+  SEARCH: 6, // seconds spent searching before returning to patrol
+  HUNT_AFTER: 25, // seconds unengaged before hunting the player (waves never stall)
+  HUNT_AFTER_LAST: 6, // ... when only a couple of runners are left
+  BAND_NEAR: 10, // preferred fighting range
+  BAND_FAR: 22,
+  RANGE: 48, // maximum firing range
+  TURN_RATE: 5.5, // rad/s: aim turns smoothly, so flanking works
+  BURST: 3,
+  BURST_GAP: 0.12,
+  COOLDOWN: 2.2, // between bursts (plus up to 0.8 random)
+  SPREAD: 0.05, // radians of aim error per bolt
+  BOLT_SPEED: 46, // visible and dodgeable
+  WANDER_RADIUS: 9,
+  SPAWN_MIN_DIST: 18, // never spawn this close to a player
+  MAX_ALIVE: 6,
+  MAX_PER_WAVE: 8,
+  SOLO_TITAN_HP: 0.6,
+  NAMES: Object.freeze(['Vex', 'Jolt', 'Kestrel', 'Rook', 'Sable', 'Pike', 'Wren', 'Brick', 'Mako', 'Juno', 'Ash', 'Onyx', 'Riot', 'Zeal', 'Fable', 'Quill']),
+});
+
+/** Callsign shown in the kill feed and over a Rogue Runner's head (same on server and client). */
+export function rogueName(id) {
+  return ROGUE.NAMES[Math.abs(id | 0) % ROGUE.NAMES.length];
+}
 
 /** Pool capacities — every pool is bounded. */
 export const LIMITS = Object.freeze({
