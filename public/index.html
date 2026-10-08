@@ -160,6 +160,7 @@
         <label class="range"><span>Mouse sensitivity <output data-out="sensitivity"></output></span><input type="range" min="0.1" max="4" step="0.05" data-setting="sensitivity"></label>
         <label class="range"><span>Field of view <output data-out="fov"></output></span><input type="range" min="70" max="120" step="1" data-setting="fov"></label>
         <label class="check"><input type="checkbox" data-setting="invertY"> Invert mouse Y-axis</label>
+        <label class="check"><input type="checkbox" data-setting="autoSprint"> Always sprint when running forward</label>
         <label class="check touch-only"><input type="checkbox" data-setting="stickTurn"> Touch: joystick also turns the view</label>
         <label class="check"><input type="checkbox" data-setting="showFps"> Show FPS counter</label>
         <label class="check"><input type="checkbox" data-setting="debug"> Debug overlay (frame time, tick, draw calls)</label>
@@ -210,20 +211,31 @@
         <div>
           <h3>Movement</h3>
           <ul class="keys">
-            <li><kbd>W A S D</kbd> move · <kbd>Mouse</kbd> look</li>
-            <li><kbd>Space</kbd> jump · jump again near a wall to <b>wall-jump</b></li>
-            <li><kbd>Shift</kbd> sprint · in the air: <b>air dash</b></li>
-            <li><kbd>C</kbd>/<kbd>Ctrl</kbd> slide · jump out of a slide to keep speed</li>
-            <li>Run along walls while holding <kbd>W</kbd> to <b>wall-run</b></li>
-            <li><kbd>Q</kbd> grapple: tap to attach (swing), hold to reel, <kbd>Space</kbd> to launch, <kbd>Q</kbd> again to release</li>
+            <li><kbd>W A S D</kbd> move · <kbd>Mouse</kbd> look · you <b>sprint automatically</b> when running forward</li>
+            <li><kbd data-bind="jump">Space</kbd> jump · jump again near a wall to <b>wall-jump</b></li>
+            <li><kbd data-bind="jump">Space</kbd> <kbd data-bind="jump">Space</kbd> double-tap for a <b>long jump</b>: a forward burst in the air. One per jump, refilled when you land or wall-jump.</li>
+            <li><kbd data-bind="slide">C</kbd> slide while sprinting · jump out of a slide to keep your speed</li>
+            <li>Run along a wall while holding <kbd data-bind="forward">W</kbd> to <b>wall-run</b></li>
+            <li><kbd data-bind="grapple">Q</kbd> grapple: tap to attach and swing, hold to reel in, <kbd data-bind="jump">Space</kbd> to launch, <kbd data-bind="grapple">Q</kbd> again to let go</li>
           </ul>
-          <h3>Combat</h3>
+          <h3>Aim and shoot</h3>
           <ul class="keys">
-            <li><kbd>LMB</kbd> fire · <kbd>RMB</kbd> focus / deflect (Phase Blades)</li>
-            <li><kbd>1</kbd>–<kbd>6</kbd> or wheel: weapons · <kbd>R</kbd> reload</li>
-            <li><kbd>F</kbd> melee pulse · <kbd>G</kbd> gravity well · <kbd>E</kbd> interact / revive</li>
-            <li><kbd>X</kbd> activate <b>Phase Break</b> at 100 Pulse Charge</li>
-            <li><kbd>Tab</kbd> scoreboard · <kbd>Esc</kbd> pause</li>
+            <li><kbd data-bind="fire">LMB</kbd> fire · <kbd data-bind="reload">R</kbd> reload · <kbd>1</kbd>–<kbd>6</kbd> or mouse wheel: switch weapon</li>
+            <li><kbd data-bind="zoom">Shift</kbd> <b>tap to zoom</b> in, tap again to zoom out · or hold <kbd data-bind="alt">RMB</kbd> to zoom while held</li>
+            <li>Zooming tightens your aim. The <b>Vector Lance</b> zooms into a sniper scope: hold <kbd data-bind="fire">LMB</kbd> to charge, release to fire.</li>
+            <li>Aim for the <b>head</b>: headshots deal double damage and show <b>HEADSHOT!</b></li>
+            <li><kbd data-bind="alt">RMB</kbd> with the Phase Blades deflects incoming bolts instead of zooming</li>
+          </ul>
+          <h3>Abilities</h3>
+          <ul class="keys">
+            <li><kbd data-bind="melee">F</kbd> melee pulse · <kbd data-bind="gravity">G</kbd> gravity well · <kbd data-bind="interact">E</kbd> interact / revive</li>
+            <li><kbd data-bind="pulse">X</kbd> activate <b>Phase Break</b> at 100 Pulse Charge</li>
+            <li><kbd data-bind="scoreboard">Tab</kbd> scoreboard · <kbd>Esc</kbd> pause · every key can be changed in Settings → Controls</li>
+          </ul>
+          <h3>On a phone or tablet</h3>
+          <ul class="keys">
+            <li>Hold it sideways. Left thumb moves (push to the side to turn), drag on the right to look.</li>
+            <li><b>Fire</b> shoots (drag on it to aim) · <b>Aim</b> toggles zoom · tap <b>Jump</b> twice for a long jump</li>
           </ul>
         </div>
         <div>
@@ -286,7 +298,7 @@
         <div class="ability" data-ab="grapple"><kbd data-bind="grapple">Q</kbd><i></i><span>Grapple</span></div>
         <div class="ability" data-ab="melee"><kbd data-bind="melee">F</kbd><i></i><span>Melee</span></div>
         <div class="ability" data-ab="gravity"><kbd data-bind="gravity">G</kbd><i></i><span>Gravity</span></div>
-        <div class="ability" data-ab="dash"><kbd data-bind="sprint">⇧</kbd><i></i><span>Dash</span></div>
+        <div class="ability" data-ab="dash"><kbd>Space×2</kbd><i></i><span>Long jump</span></div>
       </div>
     </div>
 
