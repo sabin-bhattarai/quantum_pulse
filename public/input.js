@@ -65,6 +65,9 @@ export function detectTouch() {
   return !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches;
 }
 
+/** Touch steering: mouse-pixels per second of look at full sideways stick (~125 deg/s at sensitivity 1). */
+const STICK_TURN_RATE = 1000;
+
 /** Edge-triggered actions that map to "pressed" bits in the input command. */
 const PRESS_BITS = {
   jump: BTN.JUMP_P, slide: BTN.SLIDE_P, grapple: BTN.GRAPPLE_P, sprint: BTN.DASH_P, melee: BTN.MELEE_P,
@@ -91,7 +94,8 @@ export class InputManager {
     this.captureCb = null;
     this.extraPressBits = 0;
     this.touch = detectTouch();
-    this.stick = { mx: 0, mz: 0, sprint: false };
+    this.stick = { mx: 0, mz: 0, sprint: false, turn: 0 };
+    this.lastLookAt = performance.now();
     this.rebuildBindings();
     this.bind();
   }
@@ -137,7 +141,7 @@ export class InputManager {
     this.locked = on;
     if (!on) {
       this.releaseAll();
-      this.setStick(0, 0, false);
+      this.setStick(0, 0, false, 0);
     }
     this.emit('lockchange', on);
   }
@@ -233,11 +237,15 @@ export class InputManager {
     this.lookY += dy;
   }
 
-  /** Movement stick: mx / mz in {-1, 0, 1} (the protocol carries whole steps); sprint at full tilt. */
-  setStick(mx, mz, sprint) {
+  /**
+   * Movement stick: mx / mz in {-1, 0, 1} (the protocol carries whole steps); sprint at full tilt.
+   * `turn` in [-1, 1] steers the view while the stick is held sideways.
+   */
+  setStick(mx, mz, sprint, turn = 0) {
     this.stick.mx = mx;
     this.stick.mz = mz;
     this.stick.sprint = sprint;
+    this.stick.turn = turn;
   }
 
   cycleWeapon(dir) {
@@ -253,8 +261,12 @@ export class InputManager {
     return this.held.has(action);
   }
 
-  /** Mouse delta since last call, in pixels. */
+  /** Mouse delta since last call, in pixels (plus touch steering, which turns continuously while held). */
   consumeLook() {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.lastLookAt) / 1000);
+    this.lastLookAt = now;
+    if (this.stick.turn && this.settings.stickTurn !== false) this.lookX += this.stick.turn * STICK_TURN_RATE * dt;
     const x = this.lookX, y = this.lookY;
     this.lookX = 0;
     this.lookY = 0;
